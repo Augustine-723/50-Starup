@@ -80,12 +80,25 @@ def root():
         "message": "50 Startups Multiple Linear Regression API is running.",
         "docs_url": "/docs",
         "endpoints": [
+            "GET /api/health",
             "GET /api/results",
             "GET /api/models",
             "GET /api/optuna",
-            "POST /api/predict"
+            "POST /api/predict",
+            "POST /api/custom-analyze",
+            "GET /api/proxy-csv"
         ]
     }
+
+
+@app.get("/api/health")
+def health():
+    return {
+        "status": "ok",
+        "backend_mode": "external_fastapi",
+        "message": "FastAPI ML Backend is healthy and connected"
+    }
+
 
 
 @app.get("/api/results")
@@ -203,7 +216,79 @@ def predict(req: PredictionRequest):
     }
 
 
+class CustomAnalysisRequest(BaseModel):
+    csv_text: Optional[str] = Field(None, description="Raw CSV string")
+    url: Optional[str] = Field(None, description="Public CSV URL")
+    target_column: Optional[str] = Field(None, description="Target column name")
+    feature_columns: Optional[List[str]] = Field(None, description="List of feature column names")
+    test_size: Optional[float] = Field(0.2, ge=0.05, le=0.5, description="Test split fraction")
+    random_state: Optional[int] = Field(42, description="Random seed")
+    action: Optional[str] = Field("analyze", description="'profile' or 'analyze'")
+
+
+@app.get("/api/proxy-csv")
+def proxy_csv(url: str = Query(..., description="Public CSV URL to fetch safely")):
+    """SSRF-safe CSV proxy endpoint"""
+    try:
+        from custom_analysis import fetch_csv_from_url
+        content = fetch_csv_from_url(url)
+        return {
+            'status': 'success',
+            'url': url,
+            'size': len(content),
+            'csv_text': content
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/api/custom-analyze")
+def custom_analyze(req: CustomAnalysisRequest):
+    """Universal ML regression workflow endpoint for arbitrary tabular datasets"""
+    try:
+        from custom_analysis import fetch_csv_from_url, parse_and_profile_csv, run_custom_regression_workflow
+        import pandas as pd
+        import io
+
+        csv_str = req.csv_text
+        if not csv_str and req.url:
+            csv_str = fetch_csv_from_url(req.url)
+
+        if not csv_str:
+            raise HTTPException(status_code=400, detail="Either 'csv_text' or 'url' must be provided.")
+
+        if req.action == 'profile':
+            profile = parse_and_profile_csv(csv_str)
+            return {'status': 'success', 'profile': profile}
+
+        # Otherwise run full analysis
+        df = pd.read_csv(io.StringIO(csv_str))
+        target_col = req.target_column
+        if not target_col:
+            # Pick last numeric column by default
+            num_cols = [c for c in df.columns if pd.api.types.is_numeric_dtype(df[c])]
+            if not num_cols:
+                raise HTTPException(status_code=400, detail="No numeric columns found in dataset.")
+            target_col = num_cols[-1]
+
+        feats = req.feature_columns
+        if not feats:
+            feats = [c for c in df.columns if c != target_col]
+
+        res = run_custom_regression_workflow(
+            df=df,
+            target_column=target_col,
+            feature_columns=feats,
+            test_size=req.test_size or 0.2,
+            random_state=req.random_state or 42
+        )
+        return res
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 if __name__ == '__main__':
     import uvicorn
     print("[*] Starting FastAPI server on http://localhost:8000...")
     uvicorn.run(app, host="127.0.0.1", port=8000)
+

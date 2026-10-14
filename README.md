@@ -1,304 +1,267 @@
-# AIoT HW2 — 50 Startups Multiple Linear Regression Explorer
+# AIoT HW2 — 多元線性迴歸與特徵選取通用平台 (Multi-Dataset Regression Platform)
 
 [![Next.js](https://img.shields.io/badge/Frontend-Next.js%2014-black.svg?logo=next.js)](https://nextjs.org/)
 [![FastAPI](https://img.shields.io/badge/Backend-FastAPI-009688.svg?logo=fastapi)](https://fastapi.tiangolo.com/)
 [![scikit-learn](https://img.shields.io/badge/ML-scikit--learn-F7931E.svg?logo=scikitlearn)](https://scikit-learn.org/)
 [![statsmodels](https://img.shields.io/badge/Statistics-statsmodels-blue.svg)](https://www.statsmodels.org/)
-[![Optuna](https://img.shields.io/badge/Hyperparameter-Optuna-004098.svg)](https://optuna.org/)
+[![TypeScript](https://img.shields.io/badge/Universal_ML-TypeScript-3178C6.svg?logo=typescript)](https://www.typescriptlang.org/)
 [![Tailwind CSS](https://img.shields.io/badge/UI-Tailwind%20CSS-38B2AC.svg?logo=tailwind-css)](https://tailwindcss.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-> 本專案為 **AIoT HW2** 實作之現代化全端機器學習探索與評估系統（Full-Stack Machine Learning Explorer）。參考 [AIoT-DIC2-MultipleLR 儀表板](https://huanchen1107.github.io/AIoT-DIC2-MultipleLR/) 的資訊架構與視覺理念，以 **CRISP-DM** 規範為基礎，結合 **Next.js 14 App Router**、**FastAPI**、**scikit-learn**、**statsmodels** 與 **Optuna 貝氏最佳化**，建立具備生產級前置處理、特徵選取演算法比較、即時獲利預測與殘差診斷的完整分析系統。
+> 本專案為 **AIoT HW2** 實作之現代化全端機器學習探索與多元資料集迴歸分析評估平台。遵循 **CRISP-DM** 規範，全面升級為支援**任意表格式資料集（Tabular Regression Dataset）**之通用機器學習分析架構。
+>
+> 依循授課教師規範：**「Do two problems but choose one of the topics to upload」**，平台提供雙問題（Problem 1 與 Problem 2）平行分析工作流，讓使用者可靈活切換不同資料集，進行 6 大特徵選取演算法之深入比較、過擬合診斷、統計推論、即時動態預測，並支援選擇任一問題一鍵匯出完整評估數據與 CRISP-DM 結案報告。
 
-### 🌐 線上即時展示 (Live Demo Website)
+### 🌐 線上正式部署網址 (Production Live Demo)
 👉 **[https://50-starup-i9za.vercel.app/](https://50-starup-i9za.vercel.app/)**
 
-![50 Startups Multiple Linear Regression Explorer Snapshot](assets/dashboard_snapshot.png)
+![Multi-Dataset Regression Platform Explorer Snapshot](assets/dashboard_snapshot.png)
+
+---
+
+## 核心升級重點 (Key Upgrades)
+
+### 1. 雙問題架構 (Two Problems, Choose One for Submission)
+- **Problem 1 — 內建標準題目 (50 Startups Dataset)**：
+  - 預設資料來源：`50_Startups.csv`
+  - 預測目標：`Profit` (公司年度利潤)
+  - 完整保留所有既有分析功能：Seed 42 作業規範標準、Seed 0 參考網站基準 (k=2 RMSE **$8,198.80** 精準復現)、Optuna 貝氏最佳化、statsmodels 統計推論與殘差檢定。
+- **Problem 2 — 自訂資料集通用分析 (Custom Tabular Dataset)**：
+  - 升級為通用迴歸分析平台，使用者可匯入任意數值或類別特徵之迴歸資料集。
+  - 支援 **本機 CSV 檔案上傳** 與 **公開 CSV URL 網址安全匯入**。
+  - 內建 10 特徵加州房地產估價基準資料集 (`real_estate_valuation_10features.csv`)，一鍵載入即測。
+
+### 2. 動態資料配置與安全防護 (Dynamic Dataset Configuration & SSRF Safety)
+- **前置資料探勘**：自動讀取欄位名稱、呈現前 10 筆資料即時預覽、統計總樣本數與總特徵數。
+- **型態自動偵測**：自動辨識數值連續型（Numeric）與類別型（Categorical）欄位。
+- **動態目標選取 (Dynamic Target Variable)**：使用者可透過下拉選單自由指定欲預測之目標變數，系統主動驗證連續性並提示非數值目標。
+- **特徵自由篩選 (Feature Selection Checklist)**：支援自由勾選/全選參與建模之特徵變數。
+- **超參數設定**：可自由調整測試集分割比例（Test Size: 10% ~ 40%）與隨機種子（Random Seed）。
+- **SSRF 安全防護**：URL 匯入由專屬安全代理處理，嚴格阻絕私有內部 IP（`127.*`, `10.*`, `192.168.*`, `172.16-31.*` 等）、限制 5MB 檔案大小與 10 秒超時。
+
+### 3. 可重複使用的通用機器學習管線 (Reusable ML Workflow)
+- **防範資料外洩 (Zero Data Leakage)**：One-Hot Encoding、缺失值填補（數值採用訓練集中位數、類別採用眾數）、特徵選取評分嚴格僅在訓練集擬合。
+- **6 大特徵選取演算法支援**：
+  1. **Baseline OLS** (單變數皮爾森相關排序)
+  2. **Forward SFS** (前向逐步特徵選取，訓練集 5-Fold CV 評分)
+  3. **RFE** (遞迴特徵消除，基於係數權重反向剪枝)
+  4. **Exhaustive Feature Search** (最佳子集窮舉搜尋，高維特徵自動設定安全上限)
+  5. **Lasso** (L1 正則化稀疏路徑)
+  6. **ElasticNet** (L1 + L2 混合正則化)
+- **5-Fold 交叉驗證**：所有特徵數量 $k=1 \dots k_{\max}$ 之模型皆於訓練集執行 5-Fold CV，確保模型挑選不依賴測試集外洩 (No Data Snooping)。
+
+### 4. 動態即時預測器 (Dynamic Live Predictor)
+- 表單自動根據當前選取模型所包含之特徵動態生成輸入欄位。
+- 數值特徵提供動態數值輸入，標籤與預測結果名稱動態更新為 `Predicted [Target Name]`（例如：`Predicted MedianHouseValue`）。
+- 顯示截距項與各特徵的貢獻度分解金額/數值。
+
+### 5. 雙問題比較與成果繳交 (Problem Comparison & Submission)
+- 提供 Problem 1 與 Problem 2 橫向對比表格（樣本數、特徵數、選取組合、CV RMSE、Test RMSE、Test R²、泛化差距）。
+- **統計學核心提醒**：深入說明因不同資料集目標變數之物理單位與量綱相異，**不可直接使用 RMSE 絕對數值比較跨資料集優劣**，應以無量綱之 $R^2$、調整後 $R^2$ 與交叉驗證穩定度為客觀依據。
+- **成果匯出 (Select for Submission)**：
+  - 📥 匯出完整評估數據 CSV
+  - 📄 匯出 CRISP-DM 結案報告 Markdown
+  - 📋 複製最佳模型迴歸方程式
 
 ---
 
 ## 目錄 (Table of Contents)
-1. [專案架構與技術棧 (Architecture & Tech Stack)](#專案架構與技術棧)
-2. [CRISP-DM 完整分析流程 (CRISP-DM Methodology)](#crisp-dm-完整分析流程)
-3. [基準重現與深入調查 (Reproducibility & Benchmark 8198.80)](#基準重現與深入調查)
-4. [模型評估與特徵選取比較 (Model Evaluation & Feature Selection)](#模型評估與特徵選取比較)
-5. [Optuna 貝氏超參數最佳化 (Optuna Hyperparameter Tuning)](#optuna-貝氏超參數最佳化)
-6. [FastAPI 後端 API 規格 (API Endpoints Specification)](#fastapi-後端-api-規格)
-7. [快速安裝與啟動指南 (Installation & Run Guide)](#快速安裝與啟動指南)
-8. [模型持久化與部署 (Model Persistence & Deployment)](#模型持久化與部署)
+1. [專案架構與檔案結構](#專案架構與檔案結構)
+2. [CRISP-DM 完整分析流程](#crisp-dm-完整分析流程)
+3. [如何匯入第二個資料集 (Problem 2 使用說明)](#如何匯入第二個資料集-problem-2-使用說明)
+4. [如何選擇題目匯出繳交成果](#如何選擇題目匯出繳交成果)
+5. [跨資料集評估與統計學觀念說明](#跨資料集評估與統計學觀念說明)
+6. [基準重現與深入調查 (Reproducibility & Benchmark 8198.80)](#基準重現與深入調查)
+7. [快速安裝與本機啟動指南](#快速安裝與本機啟動指南)
+8. [Vercel 生產環境相容性與部署](#vercel-生產環境相容性與部署)
 
 ---
 
-## 專案架構與技術棧
+## 專案架構與檔案結構
 
-專案採用現代化解耦架構，分離演算法運算（FastAPI）與前端視覺呈現（Next.js App Router）：
+專案採用現代化解耦架構，同時具備 Python 高效能分析後端與純 TypeScript 通用機器學習引擎（保證 Vercel Serverless 零冷啟動延遲與 100% 可用性）：
 
 ```text
 50-Starup/
 ├── backend/                             # Python FastAPI 後端核心
 │   ├── data/
-│   │   └── 50_Startups.csv              # 50 Startups 原始資料集
+│   │   ├── 50_Startups.csv              # Problem 1 內建資料集
+│   │   └── real_estate_valuation_10features.csv # Problem 2 內建 10 特徵加州房產資料集
 │   ├── models/                          # 序列化保存之模型 (gzip + pickle)
-│   │   ├── model_pipeline.pkl.gz        # 完整前處理 + 迴歸 Pipeline
-│   │   └── optuna_best_model.pkl.gz     # Optuna 最佳化後模型
-│   ├── analysis.py                      # CRISP-DM 核心演算法、特徵選取、統計檢定與 Optuna
+│   ├── analysis.py                      # 50 Startups 核心分析演算法
+│   ├── custom_analysis.py               # 通用表格式迴歸分析管線 (支援任意 CSV)
 │   ├── main.py                          # FastAPI RESTful API 服務
 │   └── requirements.txt                 # 後端 Python 依賴
 ├── frontend/                            # Next.js 14 前端應用
 │   ├── app/
-│   │   ├── globals.css                  # 全域樣式與 Tailwind 自訂主題
-│   │   ├── layout.tsx                   # 根版面與 SEO Meta 標籤設定
-│   │   ├── page.tsx                     # 現代化儀表板頁面 (Recharts, 互動面板)
-│   │   └── fallbackData.ts              # 靜態展示預先計算快照 (零冷啟動延遲)
+│   │   ├── api/                         # Next.js Serverless API Route Handlers
+│   │   │   ├── custom-analyze/route.ts  # 通用迴歸端點 (支援 JSON/CSV)
+│   │   │   ├── proxy-csv/route.ts       # SSRF 安全代理 CSV 匯入端點
+│   │   │   ├── results/route.ts         # 50 Startups 結果端點
+│   │   │   ├── optuna/route.ts          # Optuna 調優端點
+│   │   │   ├── predict/route.ts         # 即時預測端點
+│   │   │   └── health/route.ts          # 系統健康度檢測
+│   │   ├── utils/
+│   │   │   └── universalRegression.ts   # 純 TypeScript 通用 CRISP-DM 迴歸引擎
+│   │   ├── globals.css                  # Tailwind CSS 自訂主題
+│   │   ├── layout.tsx                   # 根版面與 SEO 設定
+│   │   ├── page.tsx                     # 多資料集通用分析儀表板主要頁面
+│   │   └── fallbackData.ts              # 靜態展示預先計算快照
+│   ├── public/
+│   │   └── data/
+│   │       └── real_estate_valuation_10features.csv # 10 特徵範例資料集
 │   ├── package.json                     # 前端 npm 依賴配置
-│   ├── tailwind.config.js               # Tailwind CSS 設定
-│   └── tsconfig.json                    # TypeScript 編譯配置
-├── 50_startups_regression/              # 第一階段 CLI 與靜態網頁實作
-├── assets/                              # 專案靜態圖像與儀表板快照
-│   └── dashboard_snapshot.png           # 儀表板實體快照圖
-├── .gitignore                           # Git 忽略清單 (排除 node_modules, .next, venv)
+│   └── tailwind.config.js               # Tailwind CSS 設定
+├── assets/                              # 靜態圖像與儀表板快照
 └── README.md                            # 專案完整技術說明文件
 ```
-
-### 技術選型
-- **Frontend**: Next.js 14 (App Router), TypeScript, Tailwind CSS, Recharts, Lucide Icons
-- **Backend API**: FastAPI (ASGI), Uvicorn, Pydantic v2
-- **Machine Learning & Stats**: scikit-learn (OLS, Lasso, ElasticNet, RFE, SFS), statsmodels (OLS summary, VIF, t-statistic, p-value, 95% CI), Optuna (Bayesian optimization)
-- **Data Engineering**: pandas, numpy
-- **Model Storage**: `pickle` 結合 `gzip` 壓縮序列化
 
 ---
 
 ## CRISP-DM 完整分析流程
 
-本專案嚴格遵守資料探勘跨產業標準程序（CRISP-DM, Cross-Industry Standard Process for Data Mining）：
+本專案通用迴歸管線嚴格遵守資料探勘跨產業標準程序（CRISP-DM）：
 
 ```mermaid
 graph TD
-    A[1. Business Understanding] --> B[2. Data Understanding]
-    B --> C[3. Data Preparation]
-    C --> D[4. Modeling]
-    D --> E[5. Evaluation]
-    E --> F[6. Deployment]
+    A[1. Business / Problem Understanding] --> B[2. Data Understanding & Profiling]
+    B --> C[3. Data Preprocessing & Anti-Leakage Imputation]
+    C --> D[4. Feature Selection & Modeling]
+    D --> E[5. Evaluation & Cross-Validation]
+    E --> F[6. Dynamic Predictor & Deployment]
     E -->|Iterate / Optimize| D
 ```
 
-### 1. 商業理解 (Business Understanding)
-- **目標**：協助創投機構（VC）與新創加速器精準預測 50 家新創公司之年度獲利（`Profit`）。
-- **關鍵決策**：辨識出驅動獲利的關鍵營運支出維度（研發、行政管理、市場行銷或地理州別），提供客觀且具統計顯著性的資本配置建議。
-
-### 2. 資料理解 (Data Understanding)
-- **資料維度**：50 列 (Rows)、5 欄 (Columns)，無任何缺失值（Missing Values = 0）。
-- **特徵欄位**：
-  - `R&D Spend`（數值型）：研發投入，平均 $73,721，標準差 $45,902。
-  - `Administration`（數值型）：行政支出，平均 $121,344，標準差 $28,017。
-  - `Marketing Spend`（數值型）：行銷推廣，平均 $211,025，標準差 $122,290。
-  - `State`（類別型）：註冊州別（New York: 17, California: 17, Florida: 16）。
-- **目標變數**：
-  - `Profit`（數值型）：年度淨利，平均 $112,012，標準差 $40,306。
-- **皮爾森相關矩陣 (Pearson Correlation)**：
-  - `R&D Spend` 與 `Profit` 高度線性正相關：$r = 0.9729$（最強預測因子）。
-  - `Marketing Spend` 與 `Profit` 中高度正相關：$r = 0.7478$。
-  - `Administration` 與 `Profit` 相關度偏低：$r = 0.2007$。
-
-### 3. 資料準備 (Data Preparation)
-- **防範資料外洩 (Data Leakage Prevention)**：
-  - 依照標準比例將資料切分為 **80% 訓練集 (40 筆)** 與 **20% 測試集 (10 筆)**。
-  - 所有資料轉換器（如 `OneHotEncoder`）與標準化縮放器（`StandardScaler`）**一律僅在訓練集進行 `.fit()`**，測試集僅進行 `.transform()`。
-- **虛擬變數陷阱 (Dummy Variable Trap)**：
-  - 針對類別變數 `State`，採用 `OneHotEncoder(drop='first')`。
-  - 將 `California` 作為基準參考組，產生 `State_Florida` 與 `State_New York` 兩個二元變數，避免 $D_{\text{CA}} + D_{\text{FL}} + D_{\text{NY}} = 1$ 與常數項共線導致設計矩陣不可逆。
-
-### 4. 模型建立 (Modeling)
-實作 6 大特徵選擇與線性演算法，全面評估 $k=1 \dots 5$ 個特徵之子集表現：
-1. **Baseline OLS (Ordinary Least Squares)**
-2. **Lasso (L1 Regularization)**：含特徵係數稀疏化
-3. **Forward Sequential Feature Selection (SFS)**：5-Fold 交叉驗證貪婪前向選取
-4. **Recursive Feature Elimination (RFE)**：依係數權重反向遞歸剪枝
-5. **ElasticNet (L1 + L2 Regularization)**：兼具稀疏性與共線性平滑能力
-6. **Exhaustive Feature Search**：窮舉所有 $\binom{5}{k}$ 特徵組合，找出全域最佳解
-
-### 5. 模型評估 (Evaluation)
-- **多維度量化指標**：Test RMSE、Train RMSE、5-Fold CV RMSE、R-squared ($R^2$)、Adjusted $R^2$、MAE、MSE、F-statistic。
-- **統計推論與顯著性檢定 (statsmodels OLS refit)**：
-  - 提供未標準化迴歸係數、標準誤 (SE)、t 統計量、p-value、95% 信賴區間與變異數膨脹因子 (VIF)。
-  - 提醒：Lasso 與 ElasticNet 經特徵挑選後進行 OLS 重擬合（Refit）屬於選擇後推論（Post-selection Inference），統計檢定結果具參考性但需謹慎解讀。
-- **殘差診斷 (Residual Diagnostics)**：
-  - 實際值 vs. 預測值散佈圖 (Actual vs. Predicted)
-  - 殘差分佈圖 (Residual vs. Predicted)
-  - 頂部絕對殘差極值分析 (Top Absolute Residuals Table)
-
-### 6. 模型部署 (Deployment)
-- 序列化為 `backend/models/model_pipeline.pkl.gz`，支援 FastAPI 端點即時獲利預測。
+1. **商業/問題理解**：確定目標變數（連續數值），辨識關鍵預測因子。
+2. **資料理解**：動態剖析維度、檢核缺失值分佈、計算特徵型態與統計摘要。
+3. **資料準備 (防範外洩)**：
+   - 劃分訓練集與測試集（預設 80/20）。
+   - 數值特徵缺失值：僅根據訓練集中位數進行填補。
+   - 類別特徵：進行 One-Hot Encoding，強制啟用 `drop='first'` 避免虛擬變數陷阱 (Dummy Variable Trap)。
+4. **模型建立與特徵選取**：
+   - 比較 Baseline OLS, Lasso, Forward SFS, RFE, ElasticNet, Exhaustive Search。
+   - 動態調整特徵數量 $k$ 範圍（$1 \dots \min(p, 8)$）。
+5. **模型評估**：
+   - 計算訓練集 5-Fold CV RMSE、測試集 RMSE、MAE、MSE、$R^2$、Adjusted $R^2$、泛化差距。
+   - statsmodels/統計推論計算標準誤、t-stat、p-value、95% 信賴區間與 VIF。
+6. **模型部署與即時預測**：
+   - 動態生成特徵輸入表單，即時計算預測值與特徵貢獻分解。
 
 ---
 
-## 基準重現與深入調查
+## 如何匯入第二個資料集 (Problem 2 使用說明)
 
-### 🎯 基準線 (Benchmark) 調查結果
+在網站頂部點選 **「Problem 2 (Custom Dataset)」** 按鈕即可進入通用資料集分析模式：
 
-> **參考網站數據**：$k=2$，選入特徵為 `R&D Spend` + `Marketing Spend`，測試集 Test RMSE 約 **8198.80**。
+### 方式 A：本機 CSV 檔案上傳
+1. 點選 **「本機上傳 (Upload CSV)」** 標籤。
+2. 點擊上傳框或直接將電腦中的 CSV 檔案拖曳進去。
+3. 支援標準 UTF-8 及常見格式，單檔上限 5MB。
+4. 載入成功後，下方將立即展開資料集預覽、欄位維度與配置面板。
 
-經過系統化逆向工程與實驗調查，本專案完整釐清了該數據之成因：
+### 方式 B：透過公開 URL 網址匯入
+1. 點選 **「網址匯入 (URL)」** 標籤。
+2. 在網址列輸入公開可直連的 CSV 網址（例如 GitHub Raw 連結）。
+3. 點擊 **「載入資料集」** 按鈕。
+4. 系統後端會透過安全的 SSRF 代理進行檢查與下載，確認格式無誤後自動解析。
 
-| 參數設定 | `random_state = 0` (參考網站基準) | `random_state = 42` (作業標準規格) |
+### 方式 C：一鍵載入內建範例資料集 (Presets)
+右側提供預設快捷鍵，方便快速評測：
+- **🏠 範例 1：加州房地產估價資料集**
+  - 80 筆樣本、10 個原始特徵（`MedInc`, `HouseAge`, `AveRooms`, `AveBedrms`, `Population`, `AveOccup`, `Latitude`, `Longitude`, `DistToCoast`, `OceanProximity`）。
+  - 預測目標：`MedianHouseValue`。
+  - 符合「至少 10 個原始特徵且欄位名稱完全不同」之驗證規範。
+- **💼 範例 2：50 Startups 線上 CSV (GitHub URL)**
+  - 測試網路 URL 匯入功能。
+
+### 動態配置與執行
+1. **確認目標變數**：在「預測目標變數 (Target Variable)」下拉選單中指定目標（如 `MedianHouseValue`）。
+2. **勾選特徵變數**：在候選特徵多選清單中勾選欲參與特徵篩選的欄位（預設全選）。
+3. **設定超參數**：調整測試集比例（預設 20%）與隨機種子（預設 42）。
+4. **點擊「🚀 執行通用迴歸與特徵選取分析」**：
+   - 系統將在數十毫秒內完成全套 6 種特徵選取演算法擬合、5-Fold 交叉驗證、統計檢定與殘差計算。
+   - 所有圖表、評估卡片、過擬合診斷與預測表單將同步更新為該自訂資料集的真實數值。
+
+---
+
+## 如何選擇題目匯出繳交成果
+
+進入 **「⚖️ 題目比較與成果繳交」** 標籤頁：
+
+1. **查閱雙問題綜合比較表**：
+   - 同時橫向比對 Problem 1 (50 Startups) 與 Problem 2 (自訂資料集) 的各項關鍵指標。
+2. **選擇成果繳交題目 (Select for Submission)**：
+   - 點選欲繳交的題目卡片：**「選擇 Problem 1」** 或 **「選擇 Problem 2」**。
+3. **匯出檔案**：
+   - 點擊 **「📄 匯出 CRISP-DM 結案報告 (Markdown)」**：下載包含資料集理解、模型方程式、評估指標、統計檢定與專案結論之標準 Markdown 報告，可直接用於繳交作業。
+   - 點擊 **「📥 匯出評估數據 (Results CSV)」**：匯出包含各演算法不同特徵數量 $k$ 之 Train/Test RMSE、CV RMSE、MAE、$R^2$ 試算表。
+   - 點擊 **「複製最佳方程式」**：將該問題之最佳迴歸方程式直接複製到剪貼簿。
+
+---
+
+## 跨資料集評估與統計學觀念說明
+
+> ⚠️ **重要統計學觀念：為什麼不能僅依據兩個問題的 RMSE 絕對數值判定誰比較好？**
+
+1. **量綱尺度相異 (Scale & Dimension Dependency)**：
+   RMSE（均方根誤差）保留了預測目標變數的原始物理單位。例如 Problem 1 的利潤單位為美金（數值規模約數萬至十幾萬），而 Problem 2 可能是房屋總價（數十萬）、年齡、或是考試成績。
+   兩者數值規模本質不同，直接比較絕對 RMSE 數值在統計學上毫無意義。
+2. **客觀跨資料集評估標準**：
+   跨資料集評定模型優劣應參考**無量綱之判定係數 ($R^2$)**、**調整後判定係數 (Adjusted $R^2$)**、**變異係數 ($\text{CV of RMSE} = \text{RMSE} / \bar{y}$)**，以及**交叉驗證穩定性 (CV 標準差)** 與 **泛化差距 (Train/Test Gap)**。
+
+---
+
+## 基準重現與深入調查 (Reproducibility & Benchmark 8198.80)
+
+本平台深入調查對標參考網站 [AIoT-DIC2-MultipleLR](https://huanchen1107.github.io/AIoT-DIC2-MultipleLR/) 之數值微差成因，並在網站右上角提供即時切換機制：
+
+| 評估維度 | 參考網站基準 (Benchmark) | 作業規範標準設定 (Assignment Spec) |
 | :--- | :--- | :--- |
-| **Test Set 索引** | `[2, 4, 10, 11, 22, 27, 28, 31, 38, 41]` | `[13, 17, 19, 25, 26, 30, 32, 39, 45, 48]` |
-| **$k=2$ 選入特徵** | `R&D Spend`, `Marketing Spend` | `R&D Spend`, `Marketing Spend` |
-| **$k=2$ Test RMSE** | **8198.797190788495** (小數點第 14 位完全吻合) | **8206.33** |
-| **$k=2$ Test $R^2$** | **0.9465** | **0.9168** |
-| **該種子全域最佳模型** | $k=2$ (`R&D` + `Marketing`), RMSE = **8198.80** | $k=3$ (`R&D` + `State_FL` + `State_NY`), RMSE = **7946.37** |
-
-### 關鍵洞察：
-1. **資料集切分差異**：當使用 `random_state=0` 時，測試集包含的樣本讓 `Marketing Spend` 的線性權重更為貼合，因此 Test RMSE 達到 8198.80。而在 `random_state=42` 時，$k=2$ 的 Test RMSE 為 8206.33。
-2. **多種子支援**：本專案在前端與 API 均設計了 **「隨機種子切換功能 (Seed 42 / Seed 0)」**，使用者可一鍵切換驗證 8198.80 基準，亦可觀察作業規格 `random_state=42` 之真實運算結果。
+| **隨機種子 (Random Seed)** | `random_state = 0` | `random_state = 42` |
+| **測試集樣本索引** | `[2, 4, 10, 11, 22, 27, 28, 31, 38, 41]` | `[13, 17, 19, 25, 26, 30, 32, 39, 45, 48]` |
+| **k=2 最佳特徵組合** | R&D Spend + Marketing Spend | R&D Spend + Marketing Spend |
+| **k=2 測試集 RMSE** | **$8,198.80** (精準復現) | **$8,206.33** |
+| **全域最佳模型** | k=2 (RMSE: 8,198.80) | **k=3** (RMSE: **$7,946.37**, R²: **0.9220**) |
 
 ---
 
-## 模型評估與特徵選取比較
+## 快速安裝與本機啟動指南
 
-以下以作業標準規格 `random_state=42` 為例，展示窮舉搜尋（Exhaustive Search）各特徵數量之實際計算表現：
-
-| 特徵數 $k$ | 選入特徵組合 | Train RMSE | Test RMSE | 5-Fold CV RMSE | Test $R^2$ | 模型診斷狀態 |
-| :---: | :--- | :---: | :---: | :---: | :---: | :---: |
-| **1** | `R&D Spend` | 9,481.56 | **8,353.94** | 9,926.47 | 0.9138 | 偏高偏差 (欠擬合) |
-| **2** | `R&D Spend`, `Marketing Spend` | 9,101.40 | **8,206.33** | 9,680.12 | 0.9168 | 良好配適 |
-| **3** | `R&D Spend`, `State_FL`, `State_NY` | 9,517.84 | **7,946.37** | 10,233.15 | **0.9220** | **🏆 全域最低測試誤差** |
-| **4** | `R&D Spend`, `Admin`, `State_FL`, `State_NY` | 9,162.34 | **9,316.54** | 10,069.41 | 0.8928 | 微幅過擬合 |
-| **5** | 全 5 項特徵 (`+ Marketing Spend`) | 8,927.49 | **9,055.96** | 9,985.74 | 0.8987 | 微幅過擬合 |
-
-### 📈 過擬合與欠擬合 (Overfitting / Underfitting) 深入探討
-- **$k=1 \to 3$ 階段**：加入特徵後，測試集 RMSE 從 $8,353$ 下降至 $7,946$，表示研發支出搭配區域特徵有效捕捉了真實獲利變異。
-- **$k=4 \to 5$ 階段**：訓練集 RMSE 單調遞減至 $8,927.49$，但測試集 RMSE 卻反彈至 $9,055 \sim 9,316$。
-- **學術提醒**：單次測試集樣本僅 10 筆，單次 Test RMSE 上升不足以單獨斷定為過擬合。結合 5-Fold 交叉驗證誤差（CV RMSE 在 $k=2$ 取得最低 $9,680.12$）綜合評估，選取 $k=2$ 或 $k=3$ 具有最佳的泛化穩定性。
-
----
-
-## Optuna 貝氏超參數最佳化
-
-本專案整合 **Optuna 貝氏最佳化框架**，針對 ElasticNet 的正規化強度 $\alpha$（`alpha`）與 L1 比率（`l1_ratio`）進行 50 次 Trials 的 5-Fold 交叉驗證最佳化（僅使用 Training Data，絕無 Data Leakage）：
-
-### 最佳化成果 (Seed=42)
-- **最佳模型演算法**：ElasticNet (Standardized)
-- **最佳超參數**：
-  - `alpha`: `0.0248`
-  - `l1_ratio`: `0.8712`
-- **最佳 5-Fold CV RMSE**：**$9,634.18**
-- **對應測試集 Test RMSE**：**$8,124.60**（優於未調參前之 ElasticNet 與 Baseline OLS）
-
----
-
-## FastAPI 後端 API 規格
-
-FastAPI 後端運行於 `http://127.0.0.1:8000`，提供完整的 Swagger UI 文件 (`/docs`)。
-
-### 1. `GET /api/results?random_state={seed}`
-取得指定隨機種子（預設 42）下的所有探索分析結果、6 大演算法評估指標矩陣、統計檢定結果、殘差診斷與資料集資訊。
-
-### 2. `GET /api/optuna?random_state={seed}`
-取得 Optuna 貝氏超參數最佳化歷史記錄與最佳參數組合。
-
-### 3. `POST /api/predict`
-輸入即時營運指標，透過指定演算法與特徵數進行獲利推論。
-
-**Request Body (JSON):**
-```json
-{
-  "rd_spend": 165349.20,
-  "administration": 136897.80,
-  "marketing_spend": 471784.10,
-  "state": "New York",
-  "algorithm": "Exhaustive Search",
-  "num_features": 3,
-  "random_state": 42
-}
-```
-
-**Response (JSON):**
-```json
-{
-  "predicted_profit": 192521.25,
-  "features_used": ["R&D Spend", "State_Florida", "State_New York"],
-  "algorithm": "Exhaustive Search",
-  "num_features": 3
-}
-```
-
----
-
-## 快速安裝與啟動指南
-
-### 前置需求
-- Python 3.9+
+### 環境需求
 - Node.js 18+ 與 npm
+- Python 3.10+ (選用，若需執行本機 Python 後端)
 
-### 步驟 1：複製儲存庫
-```bash
-git clone https://github.com/Augustine-723/50-Starup.git
-cd 50-Starup
-```
-
-### 步驟 2：啟動 FastAPI 後端
-```bash
-cd backend
-python -m venv .venv
-# Windows 啟動虛擬環境:
-.venv\Scripts\activate
-# macOS/Linux 啟動虛擬環境:
-# source .venv/bin/activate
-
-pip install -r requirements.txt
-python main.py
-```
-> 後端將於 **`http://127.0.0.1:8000`** 啟動，API 文件可造訪 `http://127.0.0.1:8000/docs`。
-
-### 步驟 3：啟動 Next.js 前端
-另開一個終端機視窗：
+### 1. 前端啟動 (Next.js)
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
-> 前端將於 **`http://localhost:3000`** 啟動，開啟瀏覽器即可體驗完整互動儀表板。
+瀏覽器開啟 `http://localhost:3000` 即可使用所有功能（內建純 TypeScript 通用機器學習引擎，即使未啟動 Python 後端亦可 100% 正常分析自訂資料集）。
+
+### 2. 後端啟動 (FastAPI - 選用)
+```bash
+cd backend
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+python main.py
+```
+後端將於 `http://localhost:8000` 啟動，提供 `/api/custom-analyze` 與 `/api/proxy-csv` 等完整端點。
 
 ---
 
-## 模型持久化與 Vercel 雲端部署 (Model Persistence & Vercel Deployment)
+## Vercel 生產環境相容性與部署
 
-本專案具備完整且經過嚴格驗證的 **Vercel 生產環境相容性**，提供解耦且高效的同源 Serverless API 架構：
+本專案經過完整的 Vercel Serverless Production 驗證：
 
-### 1. Vercel 一鍵部署步驟 (Step-by-Step Guide)
-
-1. **登入 Vercel 並匯入儲存庫**：
-   - 造訪 [Vercel Dashboard](https://vercel.com/dashboard) 並點擊 **"Add New..."** → **"Project"**。
-   - 連結您的 GitHub 帳號並選擇儲存庫：`https://github.com/Augustine-723/50-Starup`。
-2. **關鍵設定：指定 Root Directory (專案根目錄)**：
-   - 在專案設定頁面中找到 **Root Directory**，點擊 **Edit**。
-   - 選擇 **`frontend`** 資料夾並儲存（此步驟至關重要，可讓 Vercel 自動識別 Next.js 14 App Router 專案框架）。
-3. **檢查構建設定 (Build & Development Settings)**：
-   - **Framework Preset**：`Next.js`（預設自動偵測）
-   - **Build Command**：`npm run build`（或保留預設）
-   - **Output Directory**：`.next`（預設）
-   - **Install Command**：`npm install`（預設）
-4. **環境變數設定 (Environment Variables - 選填)**：
-   - `NEXT_PUBLIC_API_URL`：**保留空白即可**。
-   - 保留空白時，前端將直接呼叫同源 Next.js App Router API Route Handlers（零跨網域 CORS 問題、零冷啟動延遲）。若有自架獨立 FastAPI 伺服器，可填入其網址（例如 `https://your-api.onrender.com`）。
-5. **點擊 Deploy**：
-   - 專案將於 1~2 分鐘內自動構建完成並生成專屬網址（例如 `https://50-starup.vercel.app`）。
-
-### 2. 部署架構說明 (Production Architecture)
-
-- **同源 Edge / Serverless API 路由 (`frontend/app/api/`)**：
-  - `/api/results`：提供指定種子（`random_state=42` 或 `0`）之完整資料集探索指標、特徵選擇表格、統計檢定與殘差診斷。
-  - `/api/optuna`：提供 Optuna 貝氏最佳化超參數與 50 次試驗歷程。
-  - `/api/predict`：即時利潤預測端點，完全根據 Python 訓練模型之真實權重進行計算。
-  - `/api/models`：模型摘要清單。
-  - `/api/health`：系統健全度檢測與部署狀態回報。
-- **免除 Serverless 依賴大小超標與唯讀檔案系統風險**：
-  - 傳統將 `scipy` + `scikit-learn` + `statsmodels` + `optuna` 打包至 AWS Lambda / Vercel Python Function 時，未壓縮體積常突破 350MB（超過 250MB 上限）並導致冷啟動長達 10 秒以上。
-  - 本專案將訓練完成之真實模型參數與診斷資料結構化整合於 Next.js API Routes，構建大小僅百餘 KB、冷啟動低於 50ms，且 100% 免疫雲端唯讀檔案系統限制。
-- **本機全量訓練後端保留 (`backend/`)**：
-  - 完整的 Python 3.11 + FastAPI 本機服務與 `analysis.py` 完整保留於儲存庫中，可隨時執行全量資料重訓、超參數微調並導出壓縮模型（`model_pipeline.pkl.gz`）。
+1. **同源 Serverless API 架構**：
+   - Next.js App Router API Route Handlers 整合純 TypeScript 矩陣運算與迴歸管線，無需等待大型 Python 套件啟動。
+   - 伺服器冷啟動時間小於 50ms，且完全規避 Vercel Serverless Function 250MB 大小限制與 10 秒執行超時問題。
+2. **臨時資料處理與隱私安全**：
+   - 使用者上傳之 CSV 僅於記憶體中進行串流解析與運算，運算結束即釋放，**絕不進行未授權之永久儲存或轉發為公開資料**。
+3. **SSRF 安全防護**：
+   - 阻擋私有網路 IP、保留位址與本地主機請求，確保網址匯入功能的雲端生產環境安全性。
 
 ---
 
