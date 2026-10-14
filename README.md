@@ -19,49 +19,58 @@
 
 ---
 
-## 核心升級重點 (Key Upgrades)
+---
 
-### 1. 雙問題架構 (Two Problems, Choose One for Submission)
-- **Problem 1 — 內建標準題目 (50 Startups Dataset)**：
-  - 預設資料來源：`50_Startups.csv`
-  - 預測目標：`Profit` (公司年度利潤)
-  - 完整保留所有既有分析功能：Seed 42 作業規範標準、Seed 0 參考網站基準 (k=2 RMSE **$8,198.80** 精準復現)、Optuna 貝氏最佳化、statsmodels 統計推論與殘差檢定。
-- **Problem 2 — 自訂資料集通用分析 (Custom Tabular Dataset)**：
-  - 升級為通用迴歸分析平台，使用者可匯入任意數值或類別特徵之迴歸資料集。
-  - 支援 **本機 CSV 檔案上傳** 與 **公開 CSV URL 網址安全匯入**。
-  - 內建 10 特徵加州房地產估價基準資料集 (`real_estate_valuation_10features.csv`)，一鍵載入即測。
+## 系統功能審計 (Phase 1 — Functional Audit Results)
 
-### 2. 動態資料配置與安全防護 (Dynamic Dataset Configuration & SSRF Safety)
-- **前置資料探勘**：自動讀取欄位名稱、呈現前 10 筆資料即時預覽、統計總樣本數與總特徵數。
-- **型態自動偵測**：自動辨識數值連續型（Numeric）與類別型（Categorical）欄位。
-- **動態目標選取 (Dynamic Target Variable)**：使用者可透過下拉選單自由指定欲預測之目標變數，系統主動驗證連續性並提示非數值目標。
-- **特徵自由篩選 (Feature Selection Checklist)**：支援自由勾選/全選參與建模之特徵變數。
-- **超參數設定**：可自由調整測試集分割比例（Test Size: 10% ~ 40%）與隨機種子（Random Seed）。
-- **SSRF 安全防護**：URL 匯入由專屬安全代理處理，嚴格阻絕私有內部 IP（`127.*`, `10.*`, `192.168.*`, `172.16-31.*` 等）、限制 5MB 檔案大小與 10 秒超時。
+本專案經過全面的功能審計（執行自動化檢測腳本 `audit_test.py` 與端對端測試），所有 12 項核心功能均達到 **PASS** 標準：
 
-### 3. 可重複使用的通用機器學習管線 (Reusable ML Workflow)
-- **防範資料外洩 (Zero Data Leakage)**：One-Hot Encoding、缺失值填補（數值採用訓練集中位數、類別採用眾數）、特徵選取評分嚴格僅在訓練集擬合。
-- **6 大特徵選取演算法支援**：
-  1. **Baseline OLS** (單變數皮爾森相關排序)
-  2. **Forward SFS** (前向逐步特徵選取，訓練集 5-Fold CV 評分)
-  3. **RFE** (遞迴特徵消除，基於係數權重反向剪枝)
-  4. **Exhaustive Feature Search** (最佳子集窮舉搜尋，高維特徵自動設定安全上限)
-  5. **Lasso** (L1 正則化稀疏路徑)
-  6. **ElasticNet** (L1 + L2 混合正則化)
-- **5-Fold 交叉驗證**：所有特徵數量 $k=1 \dots k_{\max}$ 之模型皆於訓練集執行 5-Fold CV，確保模型挑選不依賴測試集外洩 (No Data Snooping)。
+| # | 審計項目 (Audit Item) | 狀態 | 檢驗說明 (Verification Remarks) |
+| :-: | :--- | :---: | :--- |
+| 1 | **FastAPI Connection** | **PASS** | 本機 Python FastAPI (`:8000/api/health`) 正常運作，提供即時 RESTful 模型運算 |
+| 2 | **Vercel Production Compatibility** | **PASS** | 線上正式環境 (`50-starup-i9za.vercel.app`) Serverless API 全數部署且回應正確 |
+| 3 | **Import Dataset from CSV URL** | **PASS** | 具備 SSRF 防護代理（阻擋私有 IP、限 5MB/10s 超時），成功解析公開 CSV 網址 |
+| 4 | **Dataset Upload** | **PASS** | 支援本機 CSV 檔案拖曳與即時串流解析，自動統計樣本數、特徵數與缺失值 |
+| 5 | **Dynamic Target Selection** | **PASS** | 支援任意數值欄位指定為迴歸預測目標（例如 `MedianHouseValue`、`Profit` 等） |
+| 6 | **Dynamic Feature Selection** | **PASS** | 支援候選特徵自由勾選，自動對類別欄位執行 One-Hot Encoding (`drop='first'`) |
+| 7 | **Shared Regression Workflow** | **PASS** | 兩個 Problem 共享同一套 6 大特徵選取演算法與 5-Fold CV 機器學習管線，零外洩 (Zero Data Leakage) |
+| 8 | **Model Evaluation** | **PASS** | 嚴格依據訓練集 5-Fold CV 選擇最佳模型，客觀輸出 Test RMSE、MAE、$R^2$、Adjusted $R^2$ 與泛化差距 |
+| 9 | **Problem 1 / Problem 2** | **PASS** | Problem 1 精準復現 Seed 0 基準 $8,198.80；Problem 2 支援自訂資料集通用建模 |
+| 10 | **Live Prediction** | **PASS** | 依據選定模型之特徵動態生成即時預測表單，輸出預測值與特徵貢獻分解金額 |
+| 11 | **Export Results** | **PASS** | 支援雙問題成果比對、選擇提交題目 (Select for Submission)、一鍵匯出 CSV、CRISP-DM 結案 Markdown 與迴歸方程式 |
+| 12 | **Fallback Data Audit** | **PASS** | 儀表板清楚標示後端即時連線狀態；離線快照僅作為無網路/服務不可用時之後備防護，絕不假冒即時計算 |
 
-### 4. 動態即時預測器 (Dynamic Live Predictor)
-- 表單自動根據當前選取模型所包含之特徵動態生成輸入欄位。
-- 數值特徵提供動態數值輸入，標籤與預測結果名稱動態更新為 `Predicted [Target Name]`（例如：`Predicted MedianHouseValue`）。
-- 顯示截距項與各特徵的貢獻度分解金額/數值。
+---
 
-### 5. 雙問題比較與成果繳交 (Problem Comparison & Submission)
-- 提供 Problem 1 與 Problem 2 橫向對比表格（樣本數、特徵數、選取組合、CV RMSE、Test RMSE、Test R²、泛化差距）。
-- **統計學核心提醒**：深入說明因不同資料集目標變數之物理單位與量綱相異，**不可直接使用 RMSE 絕對數值比較跨資料集優劣**，應以無量綱之 $R^2$、調整後 $R^2$ 與交叉驗證穩定度為客觀依據。
-- **成果匯出 (Select for Submission)**：
-  - 📥 匯出完整評估數據 CSV
-  - 📄 匯出 CRISP-DM 結案報告 Markdown
-  - 📋 複製最佳模型迴歸方程式
+## 4步驟簡約互動操作流程 (Phase 2 & 3 — Simplified UI/UX Architecture)
+
+為了讓第一次使用的學生與評審老師能直覺流暢地完成多元線性迴歸分析，網站重新設計為清晰的 **四步驟導覽架構 (4-Step Guided Wizard)**：
+
+```mermaid
+graph LR
+    S1[Step 1: 選擇資料集<br/>Dataset Selection] --> S2[Step 2: 模型配置<br/>Model Tuning]
+    S2 --> S3[Step 3: 分析結果<br/>Results & Charts]
+    S3 --> S4[Step 4: 成果匯出<br/>Export & Submit]
+```
+
+1. **Step 1 — 選擇與上傳資料集 (Dataset Selection & Profiling)**：
+   - 清楚並列 **Problem 1 (50 Startups 內建標準題)** 與 **Problem 2 (自訂資料集)** 兩張主要卡片。
+   - 自訂資料集支援「本機 CSV 上傳」、「公開 CSV 網址匯入」或「一鍵載入加州房地產 10 特徵示範資料集」。
+   - 載入後立即展示資料集名稱、樣本數、特徵數、目標變數及資料預覽表格。
+2. **Step 2 — 模型配置與訓練 (Model Configuration & Training)**：
+   - 精簡控制面板：選擇預測目標、特徵選取演算法（Forward SFS, RFE, Lasso 等）、特徵數量 $k$。
+   - 醒目的 **「🚀 執行迴歸分析 (Run Analysis)」** 主要操作按鈕。
+   - 較進階的參數（訓練/測試切換、隨機種子 Seed 42 / Seed 0）收納至可折疊的「⚙️ 進階模型設定」。
+3. **Step 3 — 模型評估與視覺化 (Model Evaluation & Priority Dashboard)**：
+   - **優先呈現核心結論**：最佳推薦模型 Banner（嚴格根據 Training CV 挑選）、4 大 KPI 卡片（CV RMSE, Test RMSE, Test $R^2$, 最佳特徵組合）。
+   - **3 大主要視覺化圖表**：特徵數量 vs RMSE 趨勢圖、特徵數量 vs $R^2$ 趨勢圖、訓練與測試集泛化差距 (Generalization Gap) 圖。
+   - **可折疊進階分析 (Collapsible Advanced Analysis)**：統計推論檢定（係數、標準誤、p-value、95% 信賴區間、VIF）、殘差診斷分析、動態即時預測器 (Live Predictor)、Optuna 貝氏最佳化比較，避免畫面資訊超載。
+4. **Step 4 — 成果匯出與作業繳交 (Export Results & Submission)**：
+   - 雙問題橫向對比表格（樣本數、特徵數、CV RMSE、Test RMSE、Test $R^2$、泛化差距）。
+   - **學術提醒**：明確解釋為何目標變數單位不同時不可直接比較 RMSE 絕對數值。
+   - **Select for Submission**：自選欲繳交之 Problem，一鍵下載評估數據 CSV、CRISP-DM 結案報告 Markdown 或複製迴歸方程式。
+
+---
 
 ---
 

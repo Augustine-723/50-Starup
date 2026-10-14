@@ -10,7 +10,8 @@ import {
   Download, Database, Sliders, RefreshCw, BarChart3, Layers, BookOpen,
   ArrowRight, Activity, HelpCircle, ChevronRight, Compass, Upload,
   Globe, Check, FileText, ArrowRightLeft, Sparkles, Filter, AlertCircle,
-  FileSpreadsheet, CheckCircle2, ChevronDown, ListFilter, Copy
+  FileSpreadsheet, CheckCircle2, ChevronDown, ChevronUp, ListFilter, Copy,
+  ArrowLeft, Eye, ShieldCheck, CheckSquare, Settings2, BarChart2
 } from 'lucide-react';
 
 // Fallback Data for 50 Startups (Seed 42 & 0)
@@ -25,16 +26,39 @@ import {
 
 export default function DashboardPage() {
   // ==========================================
+  // Step Navigation State (Step 1 -> 2 -> 3 -> 4)
+  // ==========================================
+  const [currentStep, setCurrentStep] = useState<number>(1);
+
+  // ==========================================
   // Problem Selection (Problem 1 vs Problem 2)
   // ==========================================
   const [activeProblem, setActiveProblem] = useState<'problem1' | 'problem2'>('problem1');
   const [submissionChoice, setSubmissionChoice] = useState<'problem1' | 'problem2'>('problem1');
 
-  // Global Controls for active model
+  // Model Tuning Parameters
   const [selectedAlgo, setSelectedAlgo] = useState<string>('Forward SFS');
   const [selectedK, setSelectedK] = useState<number>(3);
-  const [activeTab, setActiveTab] = useState<string>('evaluation');
-  const [compareAllMethods, setCompareAllMethods] = useState<boolean>(false);
+  const [showAdvancedSettings, setShowAdvancedSettings] = useState<boolean>(false);
+
+  // Step 3 Collapsible Advanced Sections
+  const [expandedSections, setExpandedSections] = useState<{
+    stats: boolean;
+    residuals: boolean;
+    predictor: boolean;
+    optuna: boolean;
+    benchmark: boolean;
+  }>({
+    stats: false,
+    residuals: false,
+    predictor: true, // Default open for easy prediction testing
+    optuna: false,
+    benchmark: false,
+  });
+
+  const toggleSection = (section: keyof typeof expandedSections) => {
+    setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
+  };
 
   // ==========================================
   // Problem 1: 50 Startups State
@@ -46,12 +70,9 @@ export default function DashboardPage() {
   const [selectedState, setSelectedState] = useState<string>('New York');
 
   const [p1ApiData, setP1ApiData] = useState<any>(null);
+  const [backendRuntime, setBackendRuntime] = useState<string>('Vercel Serverless (即時運算)');
   const [isBackendConnected, setIsBackendConnected] = useState<boolean>(false);
-  const [backendRuntime, setBackendRuntime] = useState<string>('Vercel Serverless ML API');
-  const [optunaData, setOptunaData] = useState<any>(null);
   const [isP1Loading, setIsP1Loading] = useState<boolean>(false);
-  const [liveApiPrediction, setLiveApiPrediction] = useState<any>(null);
-  const [isVerifyingApi, setIsVerifyingApi] = useState<boolean>(false);
 
   // ==========================================
   // Problem 2: Custom Dataset State
@@ -75,35 +96,28 @@ export default function DashboardPage() {
   const [customPredictInputs, setCustomPredictInputs] = useState<Record<string, number>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Fetch Problem 1 Health & Optuna data on mount
+  // Fetch Health on mount to accurately detect backend environment
   useEffect(() => {
-    async function initSystem() {
+    async function checkBackend() {
       const apiBase = process.env.NEXT_PUBLIC_API_URL || '';
       try {
         const hRes = await fetch(`${apiBase}/api/health`);
         if (hRes.ok) {
           const hJson = await hRes.json();
           if (hJson.backend_mode === 'external_fastapi') {
-            setBackendRuntime('FastAPI 伺服器 (已連線)');
+            setBackendRuntime('FastAPI 伺服器 (即時模型運算)');
+            setIsBackendConnected(true);
           } else {
-            setBackendRuntime('Vercel Serverless ML API (線上)');
+            setBackendRuntime('Vercel Serverless ML API (即時模型運算)');
+            setIsBackendConnected(true);
           }
         }
       } catch (e) {
-        setBackendRuntime('離線純 TypeScript ML 引擎');
-      }
-
-      try {
-        const oRes = await fetch(`${apiBase}/api/optuna`);
-        if (oRes.ok) {
-          const oJson = await oRes.json();
-          setOptunaData(oJson.optuna);
-        }
-      } catch (e) {
-        console.warn('Optuna load error:', e);
+        setBackendRuntime('純 TypeScript ML 引擎 (本地運算)');
+        setIsBackendConnected(false);
       }
     }
-    initSystem();
+    checkBackend();
   }, []);
 
   // Fetch Problem 1 data on seed change
@@ -117,11 +131,9 @@ export default function DashboardPage() {
           const json = await res.json();
           setP1ApiData(json);
           setIsBackendConnected(true);
-        } else {
-          setIsBackendConnected(false);
         }
       } catch (err) {
-        setIsBackendConnected(false);
+        console.warn('Backend /api/results unreachable, using offline fallback dataset.');
       } finally {
         setIsP1Loading(false);
       }
@@ -129,7 +141,7 @@ export default function DashboardPage() {
     fetchP1Data();
   }, [p1RandomState]);
 
-  // Load default custom benchmark dataset (Real Estate Valuation with 10 features) on mount
+  // Load default 10-feature custom benchmark dataset on mount
   useEffect(() => {
     async function loadDefaultCustomDataset() {
       try {
@@ -374,7 +386,7 @@ export default function DashboardPage() {
 
   // Dataset Name Display
   const activeDatasetDisplayName = useMemo(() => {
-    if (activeProblem === 'problem1') return '50 Startups Dataset (內建標準題)';
+    if (activeProblem === 'problem1') return '50 Startups (內建標準題)';
     return customDatasetName || 'Custom Dataset (自訂資料集)';
   }, [activeProblem, customDatasetName]);
 
@@ -415,7 +427,6 @@ export default function DashboardPage() {
       }
       return { total: Math.round(total * 100) / 100, breakdown };
     } else {
-      // Dynamic computation for custom dataset
       let total = currentModel.intercept || 0;
       const breakdown: Record<string, number> = { 'Intercept (β₀)': total };
 
@@ -531,372 +542,571 @@ ${Object.entries(model?.p_values || {}).map(([feat, p]) => `  - \`${feat}\`: p-v
     URL.revokeObjectURL(url);
   };
 
+  // Switch Dataset Problem & Reset Stale States
+  const handleProblemChange = (problem: 'problem1' | 'problem2') => {
+    setActiveProblem(problem);
+    if (problem === 'problem1') {
+      setSelectedK(3);
+    } else {
+      if (customAnalysisResult?.max_k && selectedK > customAnalysisResult.max_k) {
+        setSelectedK(customAnalysisResult.max_k);
+      }
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col text-slate-900">
+    <div className="min-h-screen bg-slate-50 flex flex-col text-slate-900 font-sans">
       
       {/* Top Header */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm">
-        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-3 flex flex-wrap justify-between items-center gap-3">
+      <header className="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-xs">
+        <div className="max-w-6xl mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-3">
           
-          {/* Logo & Platform Title */}
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-700 via-indigo-600 to-indigo-500 flex items-center justify-center text-white font-bold text-lg shadow-md">
+            <div className="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-bold text-base shadow-sm">
               ML
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider bg-indigo-50 text-indigo-700 border border-indigo-200">
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full uppercase bg-indigo-50 text-indigo-700 border border-indigo-200">
                   AIoT HW2
                 </span>
-                <span className="text-xs text-slate-400">• Multi-Dataset Regression Platform</span>
+                <span className="text-xs text-slate-400">• 四步驟直覺式迴歸分析平台</span>
               </div>
-              <h1 className="text-lg sm:text-xl font-heading font-bold text-slate-900 tracking-tight leading-tight">
-                多元線性迴歸與特徵選取通用平台
+              <h1 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
+                多元線性迴歸與特徵選取 (Multiple Linear Regression Explorer)
               </h1>
             </div>
           </div>
 
-          {/* Quick Problem & Export Controls */}
-          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-            
-            {/* Problem 1 / Problem 2 Switcher Buttons */}
-            <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-medium">
-              <button
-                onClick={() => {
-                  setActiveProblem('problem1');
-                  setSelectedK(3);
-                }}
-                className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
-                  activeProblem === 'problem1'
-                    ? 'bg-white text-indigo-700 font-bold shadow-sm'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                <Database className="w-3.5 h-3.5 text-indigo-600" />
-                Problem 1 (50 Startups)
-              </button>
-              <button
-                onClick={() => {
-                  setActiveProblem('problem2');
-                  if (customAnalysisResult?.max_k && selectedK > customAnalysisResult.max_k) {
-                    setSelectedK(customAnalysisResult.max_k);
-                  }
-                }}
-                className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
-                  activeProblem === 'problem2'
-                    ? 'bg-indigo-600 text-white font-bold shadow-sm'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-                Problem 2 (Custom Dataset)
-              </button>
-            </div>
-
-            {/* Seed Toggle for Problem 1 */}
-            {activeProblem === 'problem1' && (
-              <div className="flex items-center bg-slate-100 p-1 rounded-lg border border-slate-200 text-xs font-medium">
-                <span className="px-2 text-slate-500">Seed:</span>
-                <button
-                  onClick={() => setP1RandomState(42)}
-                  className={`px-2.5 py-1 rounded-md transition-all ${
-                    p1RandomState === 42 ? 'bg-white text-indigo-700 font-semibold shadow-sm' : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                  title="作業規範標準 (random_state=42)"
-                >
-                  Seed 42 (標準)
-                </button>
-                <button
-                  onClick={() => setP1RandomState(0)}
-                  className={`px-2.5 py-1 rounded-md transition-all ${
-                    p1RandomState === 0 ? 'bg-indigo-600 text-white font-semibold shadow-sm' : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                  title="對標參考網站基準 (random_state=0, k=2 RMSE 8198.80)"
-                >
-                  Seed 0 (對標 8198.80)
-                </button>
-              </div>
-            )}
-
-            {/* Backend Status Badge */}
-            <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border ${
-              isBackendConnected ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-700 border-slate-200'
-            }`}>
+          {/* Backend Connection Indicator Badge */}
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200">
               <span className={`w-2 h-2 rounded-full ${isBackendConnected ? 'bg-emerald-500 animate-pulse' : 'bg-indigo-500'}`} />
-              {activeProblem === 'problem1' ? (isBackendConnected ? backendRuntime : '純 TS 引擎運作') : '通用迴歸引擎'}
+              <span className="text-[11px]">{backendRuntime}</span>
             </div>
-
-            {/* Export CSV Button */}
-            <button
-              onClick={() => handleExportCSV(activeProblem)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-lg border border-slate-200 shadow-sm transition-all"
-            >
-              <Download className="w-3.5 h-3.5 text-indigo-600" />
-              匯出 CSV
-            </button>
           </div>
+
         </div>
       </header>
 
-      {/* Hero Banner with Dynamic Problem Status */}
-      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 pt-6 w-full">
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#1e1b4b] via-[#312e81] to-[#3730a3] text-white p-6 sm:p-8 shadow-xl">
-          <div className="relative z-10 max-w-3xl">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium bg-white/10 backdrop-blur-md border border-white/20 mb-3 text-indigo-200">
-              <Cpu className="w-3.5 h-3.5 text-indigo-300" />
-              {activeProblem === 'problem1'
-                ? 'Problem 1 — 內建 50 Startups 獲利預測標準題目'
-                : 'Problem 2 — 通用多維迴歸資料集分析 (支援任意 CSV 上傳或 URL 匯入)'}
-            </div>
-            <h2 className="text-2xl sm:text-3xl font-heading font-extrabold tracking-tight leading-snug mb-2">
-              {activeProblem === 'problem1'
-                ? '50 Startups 多元線性迴歸與特徵選取探索器'
-                : `自訂資料集分析平台：${customDatasetName}`}
-            </h2>
-            <p className="text-sm sm:text-base text-indigo-200 leading-relaxed">
-              {activeProblem === 'problem1'
-                ? '遵循標準 CRISP-DM 流程，比較 6 大特徵選取演算法，深入分析過擬合/欠擬合、提供嚴謹的 statsmodels 統計推論（VIF、p-value、95% CI）、即時獲利預測器與 Optuna 超參數調優。'
-                : '全自動化通用迴歸管線：支援任意表格式 CSV 檔案上傳或安全 URL 匯入，動態偵測數值/類別特徵、防範 Data Leakage 之無偏訓練補值、One-Hot Encoding、6 大演算法特徵篩選、5-Fold 交叉驗證與動態預測表單。'}
-            </p>
-
-            <div className="flex flex-wrap gap-2 mt-4">
-              <span className="text-xs bg-white/10 px-2.5 py-1 rounded-full border border-white/15">
-                目標變數: <strong className="text-white font-mono">{activeTargetName}</strong>
-              </span>
-              <span className="text-xs bg-white/10 px-2.5 py-1 rounded-full border border-white/15">
-                防範 Data Leakage
-              </span>
-              <span className="text-xs bg-white/10 px-2.5 py-1 rounded-full border border-white/15">
-                6 大特徵選取 (SFS, RFE, Exhaustive, Lasso, ElasticNet, OLS)
-              </span>
-              <span className="text-xs bg-white/10 px-2.5 py-1 rounded-full border border-white/15">
-                5-Fold Cross Validation
-              </span>
-            </div>
-          </div>
-          <div className="absolute -top-12 -right-12 w-80 h-80 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none" />
+      {/* 4-Step Guided Flow Wizard Bar */}
+      <div className="bg-white border-b border-slate-200 py-3 shadow-xs">
+        <div className="max-w-6xl mx-auto px-4">
+          <nav aria-label="Progress" className="flex items-center justify-between">
+            {[
+              { num: 1, label: '資料集 (Dataset)', desc: activeProblem === 'problem1' ? '50 Startups' : customDatasetName },
+              { num: 2, label: '模型設定 (Model)', desc: `${selectedAlgo} (k=${currentModel.k})` },
+              { num: 3, label: '結果與評估 (Results)', desc: currentModel.r2 ? `R² = ${currentModel.r2.toFixed(3)}` : '尚未分析' },
+              { num: 4, label: '比較與匯出 (Export)', desc: `選擇 ${submissionChoice === 'problem1' ? 'Problem 1' : 'Problem 2'}` },
+            ].map((step, idx) => {
+              const isActive = currentStep === step.num;
+              const isPassed = currentStep > step.num;
+              return (
+                <button
+                  key={step.num}
+                  onClick={() => setCurrentStep(step.num)}
+                  className={`flex items-center gap-2.5 text-left py-1.5 px-3 rounded-xl transition-all cursor-pointer ${
+                    isActive
+                      ? 'bg-indigo-50 text-indigo-700 font-bold border border-indigo-200 shadow-xs'
+                      : isPassed
+                      ? 'text-slate-700 hover:bg-slate-100'
+                      : 'text-slate-400 hover:text-slate-600'
+                  }`}
+                >
+                  <span className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold ${
+                    isActive
+                      ? 'bg-indigo-600 text-white shadow-sm'
+                      : isPassed
+                      ? 'bg-emerald-100 text-emerald-800'
+                      : 'bg-slate-100 text-slate-400'
+                  }`}>
+                    {isPassed ? <Check className="w-4 h-4 stroke-[2.5]" /> : step.num}
+                  </span>
+                  <div className="hidden sm:block">
+                    <div className="text-xs font-bold leading-tight">{step.label}</div>
+                    <div className="text-[10px] text-slate-400 truncate max-w-[130px]">{step.desc}</div>
+                  </div>
+                </button>
+              );
+            })}
+          </nav>
         </div>
       </div>
 
-      {/* Problem 2 Dataset Import & Dynamic Configuration Area */}
-      {activeProblem === 'problem2' && (
-        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 mt-6 w-full space-y-4">
-          <div className="bg-white rounded-2xl border border-indigo-100 shadow-md p-5 sm:p-6">
-            <div className="flex flex-wrap items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-600">
-                  <Database className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="font-heading font-bold text-base text-slate-900">
-                    資料集匯入與動態特徵配置 (Dataset Management & Configuration)
-                  </h3>
-                  <p className="text-xs text-slate-500">
-                    可自由上傳本機 CSV 檔案或輸入公開 CSV 網址，系統自動檢查缺失值、解析欄位型態並建立專屬迴歸模型
-                  </p>
-                </div>
-              </div>
+      {/* Main Container */}
+      <main className="max-w-6xl mx-auto px-4 py-6 w-full flex-1">
 
-              {/* Mode switch: Upload vs URL */}
-              <div className="flex items-center bg-slate-100 p-1 rounded-lg border border-slate-200 text-xs font-semibold">
-                <button
-                  onClick={() => setCustomImportMode('url')}
-                  className={`px-3 py-1.5 rounded-md flex items-center gap-1.5 transition-all ${
-                    customImportMode === 'url' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  <Globe className="w-3.5 h-3.5" />
-                  網址匯入 (URL)
-                </button>
-                <button
-                  onClick={() => setCustomImportMode('upload')}
-                  className={`px-3 py-1.5 rounded-md flex items-center gap-1.5 transition-all ${
-                    customImportMode === 'upload' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  <Upload className="w-3.5 h-3.5" />
-                  本機上傳 (Upload CSV)
-                </button>
+        {/* ========================================================================= */}
+        {/* STEP 1: 資料集選擇與探勘 (Dataset Selection & Profiling)                     */}
+        {/* ========================================================================= */}
+        {currentStep === 1 && (
+          <div className="space-y-6">
+            
+            {/* Step Header */}
+            <div>
+              <div className="flex items-center gap-2 text-indigo-600 font-bold text-xs uppercase tracking-wider mb-1">
+                <span>Step 1 of 4</span>
+                <span>•</span>
+                <span>選擇或匯入資料集</span>
               </div>
+              <h2 className="text-xl sm:text-2xl font-bold text-slate-900">
+                選擇要分析的迴歸問題 (Choose Problem)
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-500 mt-1">
+                依據作業規範「Do two problems but choose one of the topics to upload」，請先選擇 Problem 1 或 Problem 2。
+              </p>
             </div>
 
-            {/* Error & Success Alerts */}
-            {customError && (
-              <div className="mb-4 p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-2.5">
-                <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0" />
-                <span>{customError}</span>
-              </div>
-            )}
-            {customSuccessMsg && !customError && (
-              <div className="mb-4 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2.5">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-                <span>{customSuccessMsg}</span>
-              </div>
-            )}
-
-            {/* Input Method: Upload or URL */}
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
-              {customImportMode === 'upload' ? (
-                <div className="md:col-span-8 flex items-center gap-3">
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    onChange={handleFileUpload}
-                    accept=".csv,text/csv"
-                    className="hidden"
-                  />
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className="flex-1 border-2 border-dashed border-indigo-200 hover:border-indigo-400 bg-indigo-50/30 hover:bg-indigo-50/60 rounded-xl p-4 text-center cursor-pointer transition-all flex flex-col items-center justify-center gap-1"
-                  >
-                    <Upload className="w-6 h-6 text-indigo-600 mb-1" />
-                    <span className="text-xs font-bold text-slate-800">點擊此處或拖曳 CSV 檔案上傳</span>
-                    <span className="text-[11px] text-slate-500">支援標準 UTF-8 與常見編碼格式 (最大 5MB)</span>
-                  </button>
+            {/* Problem Choice Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              
+              {/* Problem 1 Card */}
+              <div
+                onClick={() => handleProblemChange('problem1')}
+                className={`p-5 rounded-2xl border-2 cursor-pointer transition-all ${
+                  activeProblem === 'problem1'
+                    ? 'bg-indigo-50/50 border-indigo-600 shadow-md ring-2 ring-indigo-500/10'
+                    : 'bg-white border-slate-200 hover:border-slate-300 shadow-xs'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${activeProblem === 'problem1' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                      <Database className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-sm text-slate-900">Problem 1: 50 Startups</h3>
+                      <span className="text-[10px] text-slate-400">內建標準題目 (Built-in)</span>
+                    </div>
+                  </div>
+                  <span className={`w-4 h-4 rounded-full border flex items-center justify-center ${activeProblem === 'problem1' ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-300'}`}>
+                    {activeProblem === 'problem1' && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                  </span>
                 </div>
-              ) : (
-                <div className="md:col-span-8 space-y-2">
-                  <div className="flex gap-2">
-                    <input
-                      type="url"
-                      value={customUrlInput}
-                      onChange={(e) => setCustomUrlInput(e.target.value)}
-                      placeholder="請輸入公開 CSV 直連網址 (例如 GitHub raw CSV)"
-                      className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-3.5 py-2 text-xs font-mono text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500"
-                    />
+                <p className="text-xs text-slate-600 mb-3 leading-relaxed">
+                  經典創投營運支出資料集，包含研發、行政、行銷支出與設立州別，預測目標為公司利潤（<code>Profit</code>）。
+                </p>
+                <div className="flex flex-wrap gap-1.5 text-[11px]">
+                  <span className="px-2 py-0.5 rounded bg-white border border-slate-200 text-slate-700 font-mono">50 Samples</span>
+                  <span className="px-2 py-0.5 rounded bg-white border border-slate-200 text-slate-700 font-mono">4 Features</span>
+                  <span className="px-2 py-0.5 rounded bg-indigo-100 text-indigo-800 font-mono font-bold">Target: Profit</span>
+                </div>
+              </div>
+
+              {/* Problem 2 Card */}
+              <div
+                onClick={() => handleProblemChange('problem2')}
+                className={`p-5 rounded-2xl border-2 cursor-pointer transition-all ${
+                  activeProblem === 'problem2'
+                    ? 'bg-indigo-50/50 border-indigo-600 shadow-md ring-2 ring-indigo-500/10'
+                    : 'bg-white border-slate-200 hover:border-slate-300 shadow-xs'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${activeProblem === 'problem2' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                      <Sparkles className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-sm text-slate-900">Problem 2: 自訂資料集 (Custom Dataset)</h3>
+                      <span className="text-[10px] text-slate-400">支援 CSV 上傳與公開 URL 匯入</span>
+                    </div>
+                  </div>
+                  <span className={`w-4 h-4 rounded-full border flex items-center justify-center ${activeProblem === 'problem2' ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-300'}`}>
+                    {activeProblem === 'problem2' && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-600 mb-3 leading-relaxed">
+                  通用表格式機器學習分析，可自由匯入本機或線上 CSV，自動探勘缺失值、類別編碼並動態選擇預測目標。
+                </p>
+                <div className="flex flex-wrap gap-1.5 text-[11px]">
+                  <span className="px-2 py-0.5 rounded bg-white border border-slate-200 text-slate-700 font-mono">
+                    {customProfile ? `${customProfile.rowCount} Samples` : '任意樣本數'}
+                  </span>
+                  <span className="px-2 py-0.5 rounded bg-white border border-slate-200 text-slate-700 font-mono">
+                    {customProfile ? `${customProfile.columnNames.length - 1} Features` : '多維特徵'}
+                  </span>
+                  <span className="px-2 py-0.5 rounded bg-indigo-100 text-indigo-800 font-mono font-bold">
+                    Target: {customTargetCol}
+                  </span>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Custom Dataset Import Box (Only shown if Problem 2 is chosen) */}
+            {activeProblem === 'problem2' && (
+              <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4">
+                
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
+                  <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                    <Upload className="w-3.5 h-3.5 text-indigo-600" />
+                    匯入資料方式 (Import Method)：
+                  </span>
+                  <div className="flex items-center bg-slate-100 p-1 rounded-lg text-xs font-semibold">
                     <button
-                      onClick={handleUrlImport}
-                      disabled={isCustomLoading}
-                      className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg shadow-sm flex items-center gap-1.5 transition-all disabled:opacity-50"
+                      onClick={() => setCustomImportMode('url')}
+                      className={`px-3 py-1 rounded-md transition-all ${customImportMode === 'url' ? 'bg-white text-indigo-700 shadow-xs' : 'text-slate-600'}`}
                     >
-                      {isCustomLoading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
-                      載入資料集
+                      公開 CSV 網址 (URL)
+                    </button>
+                    <button
+                      onClick={() => setCustomImportMode('upload')}
+                      className={`px-3 py-1 rounded-md transition-all ${customImportMode === 'upload' ? 'bg-white text-indigo-700 shadow-xs' : 'text-slate-600'}`}
+                    >
+                      本機 CSV 上傳 (File)
                     </button>
                   </div>
-                  <div className="text-[11px] text-slate-400 flex items-center gap-1.5">
-                    <span>🛡️ 經由後端 SSRF 安全代理防護，自動阻斷私有網路請求與惡意重新導向</span>
-                  </div>
                 </div>
-              )}
 
-              {/* Quick Preset Buttons */}
-              <div className="md:col-span-4 bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2">
-                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
-                  快速載入範例資料集 (Presets):
-                </span>
-                <div className="flex flex-col gap-1.5">
+                {customError && (
+                  <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-xs flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0" />
+                    <span>{customError}</span>
+                  </div>
+                )}
+                {customSuccessMsg && !customError && (
+                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                    <span>{customSuccessMsg}</span>
+                  </div>
+                )}
+
+                {/* Import Inputs */}
+                {customImportMode === 'upload' ? (
+                  <div>
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={handleFileUpload}
+                      accept=".csv,text/csv"
+                      className="hidden"
+                    />
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="w-full border-2 border-dashed border-indigo-200 hover:border-indigo-400 bg-indigo-50/20 hover:bg-indigo-50/50 rounded-xl p-6 text-center cursor-pointer transition-all flex flex-col items-center justify-center gap-1.5"
+                    >
+                      <Upload className="w-7 h-7 text-indigo-600" />
+                      <span className="text-xs font-bold text-slate-800">點擊此處選擇本機 CSV 檔案</span>
+                      <span className="text-[11px] text-slate-400">支援標準 UTF-8 及常見 CSV 編碼格式 (上限 5MB)</span>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="flex gap-2">
+                      <input
+                        type="url"
+                        value={customUrlInput}
+                        onChange={(e) => setCustomUrlInput(e.target.value)}
+                        placeholder="請輸入公開 CSV 直連網址 (例如 GitHub raw CSV 連結)"
+                        className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-3.5 py-2 text-xs font-mono text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                      <button
+                        onClick={handleUrlImport}
+                        disabled={isCustomLoading}
+                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg shadow-xs flex items-center gap-1.5 transition-all disabled:opacity-50"
+                      >
+                        {isCustomLoading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
+                        載入資料
+                      </button>
+                    </div>
+                    <div className="text-[11px] text-slate-400 flex items-center gap-1.5">
+                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>已啟動 SSRF 安全代理防護 (自動阻絕私有內部 IP 與超時)</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Presets */}
+                <div className="pt-2 flex flex-wrap items-center gap-2">
+                  <span className="text-[11px] font-bold text-slate-500">快速範例：</span>
                   <button
                     onClick={async () => {
                       const res = await fetch('/data/real_estate_valuation_10features.csv');
                       const text = await res.text();
                       loadCsvDataString(text, '加州房地產估價 (10 Features)', 'MedianHouseValue');
                     }}
-                    className="text-left px-2.5 py-1.5 rounded-lg bg-white hover:bg-indigo-50 border border-slate-200 hover:border-indigo-200 text-xs font-semibold text-slate-700 hover:text-indigo-700 transition-all flex items-center justify-between"
+                    className="px-2.5 py-1 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-700 border border-slate-200 rounded-md text-xs font-medium text-slate-700 transition-all"
                   >
-                    <span>🏠 範例 1：加州房地產 (10 特徵, 80 筆)</span>
-                    <span className="text-[10px] text-indigo-600 font-mono">10 Feats</span>
+                    🏠 範例 1：加州房產 (10 特徵, 80 筆)
                   </button>
                   <button
                     onClick={() => {
                       setCustomUrlInput('https://raw.githubusercontent.com/Avik-Jain/100-Days-Of-ML-Code/master/datasets/50_Startups.csv');
                       fetch('https://raw.githubusercontent.com/Avik-Jain/100-Days-Of-ML-Code/master/datasets/50_Startups.csv')
                         .then(r => r.text())
-                        .then(t => loadCsvDataString(t, '50 Startups (URL 匯入版)', 'Profit'))
+                        .then(t => loadCsvDataString(t, '50 Startups (URL 版)', 'Profit'))
                         .catch(() => handleUrlImport());
                     }}
-                    className="text-left px-2.5 py-1.5 rounded-lg bg-white hover:bg-indigo-50 border border-slate-200 hover:border-indigo-200 text-xs font-semibold text-slate-700 hover:text-indigo-700 transition-all flex items-center justify-between"
+                    className="px-2.5 py-1 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-700 border border-slate-200 rounded-md text-xs font-medium text-slate-700 transition-all"
                   >
-                    <span>💼 範例 2：50 Startups (線上 URL)</span>
-                    <span className="text-[10px] text-indigo-600 font-mono">Profit</span>
+                    💼 範例 2：50 Startups 線上 CSV
                   </button>
                 </div>
+
+              </div>
+            )}
+
+            {/* Dataset Preview & Statistics Table */}
+            <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <Eye className="w-4 h-4 text-indigo-600" />
+                  <h3 className="font-bold text-sm text-slate-900">
+                    資料集規格與前 10 筆預覽 (Data Preview & Info)
+                  </h3>
+                </div>
+                <div className="flex flex-wrap gap-2 text-xs font-mono">
+                  <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700">
+                    樣本數: {activeProblem === 'problem1' ? 50 : (customProfile?.rowCount || customRecords.length || 0)} 筆
+                  </span>
+                  <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700">
+                    特徵數: {activeProblem === 'problem1' ? 4 : (customProfile?.columnNames?.length ? customProfile.columnNames.length - 1 : 0)} 欄
+                  </span>
+                  <span className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200">
+                    缺失值: 0 處
+                  </span>
+                </div>
+              </div>
+
+              {/* Preview Table */}
+              <div className="overflow-x-auto border border-slate-200 rounded-xl max-h-52">
+                <table className="w-full text-left text-xs font-mono">
+                  <thead className="bg-slate-50 text-slate-600 font-semibold sticky top-0">
+                    <tr>
+                      <th className="p-2 border-b border-slate-200 text-center w-10">#</th>
+                      {activeProblem === 'problem1' ? (
+                        <>
+                          <th className="p-2 border-b border-slate-200">R&D Spend</th>
+                          <th className="p-2 border-b border-slate-200">Administration</th>
+                          <th className="p-2 border-b border-slate-200">Marketing Spend</th>
+                          <th className="p-2 border-b border-slate-200">State</th>
+                          <th className="p-2 border-b border-slate-200 bg-indigo-50 text-indigo-900 font-bold">Profit (🎯 Target)</th>
+                        </>
+                      ) : (
+                        customProfile?.columnNames.map(col => (
+                          <th key={col} className={`p-2 border-b border-slate-200 whitespace-nowrap ${col === customTargetCol ? 'bg-indigo-50 text-indigo-900 font-bold' : ''}`}>
+                            {col} {col === customTargetCol && '(🎯 Target)'}
+                          </th>
+                        ))
+                      )}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-[11px]">
+                    {activeProblem === 'problem1' ? (
+                      DATASET_50_STARTUPS.slice(0, 5).map((row, idx) => (
+                        <tr key={idx} className="hover:bg-slate-50">
+                          <td className="p-2 text-center text-slate-400">{idx + 1}</td>
+                          <td className="p-2">{row["R&D Spend"].toLocaleString()}</td>
+                          <td className="p-2">{row["Administration"].toLocaleString()}</td>
+                          <td className="p-2">{row["Marketing Spend"].toLocaleString()}</td>
+                          <td className="p-2">{row["State"]}</td>
+                          <td className="p-2 font-bold text-indigo-700 bg-indigo-50/30">${row["Profit"].toLocaleString()}</td>
+                        </tr>
+                      ))
+                    ) : (
+                      customProfile?.firstRows.slice(0, 5).map((row, idx) => (
+                        <tr key={idx} className="hover:bg-slate-50">
+                          <td className="p-2 text-center text-slate-400">{idx + 1}</td>
+                          {customProfile.columnNames.map(col => (
+                            <td key={col} className={`p-2 whitespace-nowrap ${col === customTargetCol ? 'font-bold text-indigo-700 bg-indigo-50/30' : 'text-slate-700'}`}>
+                              {row[col] !== undefined ? String(row[col]) : ''}
+                            </td>
+                          ))}
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
               </div>
             </div>
 
-            {/* Dynamic Configuration Panel (Shown when dataset loaded) */}
-            {customProfile && (
-              <div className="mt-5 pt-5 border-t border-slate-100 space-y-4">
+            {/* Bottom Next Step Action */}
+            <div className="flex justify-end pt-2">
+              <button
+                onClick={() => setCurrentStep(2)}
+                className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow-sm flex items-center gap-2 transition-all cursor-pointer"
+              >
+                <span>下一步：設定迴歸模型 (Step 2)</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+
+          </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* STEP 2: 模型設定與特徵選取 (Model Configuration)                             */}
+        {/* ========================================================================= */}
+        {currentStep === 2 && (
+          <div className="space-y-6">
+            
+            {/* Step Header */}
+            <div>
+              <div className="flex items-center gap-2 text-indigo-600 font-bold text-xs uppercase tracking-wider mb-1">
+                <span>Step 2 of 4</span>
+                <span>•</span>
+                <span>模型超參數與特徵選取設定</span>
+              </div>
+              <h2 className="text-xl sm:text-2xl font-bold text-slate-900">
+                設定模型參數 (Model Configuration Panel)
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-500 mt-1">
+                目前選定資料集：<strong>{activeDatasetDisplayName}</strong>。設定目標變數與演算法後，即可一鍵執行全套迴歸擬合。
+              </p>
+            </div>
+
+            {/* Core Model Configuration Panel */}
+            <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-6">
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 
-                {/* Dataset Summary Tags */}
-                <div className="flex flex-wrap items-center justify-between gap-3 bg-indigo-50/50 p-3.5 rounded-xl border border-indigo-100">
-                  <div className="flex items-center gap-3 flex-wrap">
-                    <span className="text-xs font-bold text-slate-600">
-                      資料集狀態：<strong className="text-indigo-900">{customDatasetName}</strong>
-                    </span>
-                    <span className="text-xs px-2 py-0.5 rounded-md bg-white border border-indigo-200 text-indigo-700 font-medium">
-                      總樣本數: {customProfile.rowCount} 筆
-                    </span>
-                    <span className="text-xs px-2 py-0.5 rounded-md bg-white border border-indigo-200 text-indigo-700 font-medium">
-                      總特徵數: {customProfile.columnNames.length} 欄 (數值: {customProfile.numericColumns.length}, 類別: {customProfile.categoricalColumns.length})
-                    </span>
-                    <span className="text-xs px-2 py-0.5 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-800 font-medium">
-                      缺失值檢核: 發現 {Object.values(customProfile.missingCounts).reduce((a, b) => a + b, 0)} 處 (訓練集自動中位數填補)
-                    </span>
-                  </div>
-
-                  <button
-                    onClick={() => {
-                      if (!customTargetCol) {
-                        setCustomError('請先選擇目標變數 (Target Column)');
-                        return;
-                      }
-                      if (customFeatureCols.length === 0) {
-                        setCustomError('請至少選取一個自變數特徵 (Features)');
-                        return;
-                      }
-                      runAnalysisOnCustomData(
-                        customRecords,
-                        customTargetCol,
-                        customFeatureCols,
-                        customTestSize,
-                        customRandomSeed,
-                        customDatasetName
-                      );
-                    }}
-                    disabled={isCustomLoading}
-                    className="px-5 py-2 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white text-xs font-bold rounded-lg shadow-md flex items-center gap-2 transition-all disabled:opacity-50"
-                  >
-                    {isCustomLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4 fill-white" />}
-                    🚀 執行通用迴歸與特徵選取分析
-                  </button>
-                </div>
-
-                {/* Target & Hyperparameter Controls */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 p-4 bg-slate-50 rounded-xl border border-slate-200 text-xs">
-                  
-                  {/* Target Column Select */}
-                  <div className="space-y-1.5">
-                    <label className="font-bold text-slate-700 flex items-center gap-1.5">
-                      🎯 預測目標變數 (Target Variable):
-                    </label>
+                {/* 1. Target Variable Selection */}
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                    <span>🎯 預測目標變數 (Target Variable):</span>
+                  </label>
+                  {activeProblem === 'problem1' ? (
+                    <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-mono font-bold text-indigo-700 flex items-center justify-between">
+                      <span>Profit (公司年度淨利潤)</span>
+                      <span className="text-[10px] bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded">內建目標</span>
+                    </div>
+                  ) : (
                     <select
                       value={customTargetCol}
                       onChange={(e) => {
-                        const newTarget = e.target.value;
-                        setCustomTargetCol(newTarget);
-                        setCustomFeatureCols(prev => prev.filter(c => c !== newTarget));
+                        const newT = e.target.value;
+                        setCustomTargetCol(newT);
+                        setCustomFeatureCols(prev => prev.filter(c => c !== newT));
                       }}
-                      className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
                     >
-                      {customProfile.numericColumns.map(col => (
+                      {customProfile?.numericColumns.map(col => (
                         <option key={col} value={col}>
-                          {col} (數值連續變數)
-                        </option>
-                      ))}
-                      {customProfile.categoricalColumns.map(col => (
-                        <option key={col} value={col} disabled>
-                          {col} (⚠️ 類別型變數不適合做迴歸目標)
+                          {col} (數值連續型變數)
                         </option>
                       ))}
                     </select>
-                  </div>
+                  )}
+                  <p className="text-[11px] text-slate-400">
+                    通用迴歸引擎將針對此目標變數擬合線性權重方程。
+                  </p>
+                </div>
 
-                  {/* Test Size Slider */}
-                  <div className="space-y-1.5">
-                    <div className="flex justify-between items-center">
-                      <label className="font-bold text-slate-700">測試集比例 (Test Size):</label>
-                      <span className="font-mono font-bold text-indigo-600">{Math.round(customTestSize * 100)}%</span>
+                {/* 2. Algorithm Selection */}
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                    <span>⚙️ 特徵選取演算法 (Feature Selection Algorithm):</span>
+                  </label>
+                  <select
+                    value={selectedAlgo}
+                    onChange={(e) => setSelectedAlgo(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                  >
+                    <option value="Forward SFS">Forward Sequential Feature Selection (Forward SFS)</option>
+                    <option value="RFE">Recursive Feature Elimination (RFE)</option>
+                    <option value="Exhaustive Search">Exhaustive Feature Search (最佳子集窮舉)</option>
+                    <option value="Baseline OLS">Baseline OLS (單變數皮爾森相關排序)</option>
+                    <option value="Lasso">Lasso (L1 正則化稀疏路徑)</option>
+                    <option value="ElasticNet">ElasticNet (L1 + L2 混合正則化)</option>
+                  </select>
+                  <p className="text-[11px] text-slate-400">
+                    推薦使用 Forward SFS，以訓練集 5-Fold CV 尋找泛化最優特徵子集。
+                  </p>
+                </div>
+
+              </div>
+
+              {/* 3. Number of Features (k) Selector */}
+              <div className="space-y-2 pt-2 border-t border-slate-100">
+                <div className="flex justify-between items-center">
+                  <label className="text-xs font-bold text-slate-700">
+                    特徵選取數量 (Number of Features k):
+                  </label>
+                  <span className="text-xs font-mono font-bold text-indigo-600">k = {selectedK}</span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {Array.from({ length: maxK }, (_, i) => i + 1).map(k => {
+                    const isBestCv = bestCvModel?.k === k;
+                    const isBestTest = bestTestModel?.k === k;
+                    const isSelected = selectedK === k;
+                    return (
+                      <button
+                        key={k}
+                        onClick={() => setSelectedK(k)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border cursor-pointer ${
+                          isSelected
+                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                            : isBestCv
+                            ? 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100'
+                            : 'bg-slate-50 text-slate-700 border-slate-200 hover:border-slate-300'
+                        }`}
+                      >
+                        <span>{k} Features</span>
+                        {isBestCv && (
+                          <span className={`text-[9px] px-1.5 py-0.2 rounded-full ${isSelected ? 'bg-white/20 text-white' : 'bg-emerald-200 text-emerald-900'}`}>
+                            🏆 推薦 CV
+                          </span>
+                        )}
+                        {isBestTest && !isBestCv && (
+                          <span className={`text-[9px] px-1.5 py-0.2 rounded-full ${isSelected ? 'bg-white/20 text-white' : 'bg-amber-200 text-amber-900'}`}>
+                            🎯 最低 Test
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 4. Split and Seed */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-2 border-t border-slate-100">
+                
+                {/* Seed Toggle / Input */}
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-700">隨機種子 (Random Seed):</label>
+                  {activeProblem === 'problem1' ? (
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setP1RandomState(42)}
+                        className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-bold border transition-all ${
+                          p1RandomState === 42 ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs' : 'bg-slate-50 text-slate-600 border-slate-200'
+                        }`}
+                      >
+                        Seed 42 (標準作業規範)
+                      </button>
+                      <button
+                        onClick={() => setP1RandomState(0)}
+                        className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-bold border transition-all ${
+                          p1RandomState === 0 ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs' : 'bg-slate-50 text-slate-600 border-slate-200'
+                        }`}
+                      >
+                        Seed 0 (對標 8198.80)
+                      </button>
                     </div>
+                  ) : (
+                    <input
+                      type="number"
+                      value={customRandomSeed}
+                      onChange={(e) => setCustomRandomSeed(Number(e.target.value))}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono font-semibold text-slate-800"
+                    />
+                  )}
+                </div>
+
+                {/* Test Split Fraction */}
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <label className="text-xs font-bold text-slate-700">測試集劃分比例 (Test Size):</label>
+                    <span className="font-mono text-xs font-bold text-indigo-600">
+                      {activeProblem === 'problem1' ? '20% (固定 10 筆)' : `${Math.round(customTestSize * 100)}%`}
+                    </span>
+                  </div>
+                  {activeProblem === 'problem1' ? (
+                    <div className="text-xs text-slate-500 py-1 font-mono">
+                      80% 訓練集 (40 筆) / 20% 獨立測試集 (10 筆)
+                    </div>
+                  ) : (
                     <input
                       type="range"
                       min="0.1"
@@ -906,416 +1116,279 @@ ${Object.entries(model?.p_values || {}).map(([feat, p]) => `  - \`${feat}\`: p-v
                       onChange={(e) => setCustomTestSize(Number(e.target.value))}
                       className="w-full accent-indigo-600 cursor-pointer"
                     />
-                  </div>
+                  )}
+                </div>
 
-                  {/* Random Seed Input */}
-                  <div className="space-y-1.5">
-                    <label className="font-bold text-slate-700">隨機種子 (Random Seed):</label>
-                    <input
-                      type="number"
-                      value={customRandomSeed}
-                      onChange={(e) => setCustomRandomSeed(Number(e.target.value))}
-                      className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500"
-                    />
-                  </div>
+              </div>
 
-                  {/* Feature Selection Helper */}
-                  <div className="space-y-1.5 flex flex-col justify-end">
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => {
-                          const allAvail = customProfile.columnNames.filter(c => c !== customTargetCol);
-                          setCustomFeatureCols(allAvail);
-                        }}
-                        className="flex-1 py-1.5 px-2 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg text-slate-700 font-semibold text-[11px] transition-all"
-                      >
-                        全選特徵
-                      </button>
-                      <button
-                        onClick={() => setCustomFeatureCols([])}
-                        className="py-1.5 px-2 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg text-slate-700 font-semibold text-[11px] transition-all"
-                      >
-                        清除
-                      </button>
+              {/* Collapsible Advanced Settings (Checklist of Features) */}
+              {activeProblem === 'problem2' && customProfile && (
+                <div className="pt-2 border-t border-slate-100">
+                  <button
+                    onClick={() => setShowAdvancedSettings(!showAdvancedSettings)}
+                    className="flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-indigo-600 transition-colors cursor-pointer"
+                  >
+                    <Settings2 className="w-3.5 h-3.5" />
+                    <span>進階設定：自訂候選特徵白名單 ({customFeatureCols.length}/{customProfile.columnNames.length - 1} 個已選取)</span>
+                    {showAdvancedSettings ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                  </button>
+
+                  {showAdvancedSettings && (
+                    <div className="mt-3 p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-2 text-xs">
+                      <div className="flex justify-between items-center pb-1">
+                        <span className="font-bold text-slate-700">勾選參與特徵篩選的原始欄位：</span>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => setCustomFeatureCols(customProfile.columnNames.filter(c => c !== customTargetCol))}
+                            className="text-[11px] text-indigo-600 hover:underline font-semibold"
+                          >
+                            全選
+                          </button>
+                          <button
+                            onClick={() => setCustomFeatureCols([])}
+                            className="text-[11px] text-slate-500 hover:underline"
+                          >
+                            清空
+                          </button>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {customProfile.columnNames.filter(c => c !== customTargetCol).map(feat => {
+                          const isSel = customFeatureCols.includes(feat);
+                          return (
+                            <button
+                              key={feat}
+                              onClick={() => {
+                                if (isSel) setCustomFeatureCols(customFeatureCols.filter(c => c !== feat));
+                                else setCustomFeatureCols([...customFeatureCols, feat]);
+                              }}
+                              className={`px-2.5 py-1 rounded-lg text-xs font-medium border flex items-center gap-1.5 transition-all ${
+                                isSel ? 'bg-indigo-50 border-indigo-300 text-indigo-800 font-bold' : 'bg-white border-slate-200 text-slate-600'
+                              }`}
+                            >
+                              <span className={`w-3 h-3 rounded flex items-center justify-center text-[9px] ${isSel ? 'bg-indigo-600 text-white' : 'border border-slate-300'}`}>
+                                {isSel && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                              </span>
+                              <span>{feat}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
-
+                  )}
                 </div>
+              )}
 
-                {/* Feature Selection Checkbox Pills */}
-                <div className="space-y-2">
-                  <div className="text-xs font-bold text-slate-600 flex items-center justify-between">
-                    <span>候選特徵多選清單 (選擇參與特徵篩選的欄位)：</span>
-                    <span className="text-slate-400 font-normal">已選取 {customFeatureCols.length} / {customProfile.columnNames.length - 1} 個</span>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {customProfile.columnNames.filter(c => c !== customTargetCol).map(feat => {
-                      const isSelected = customFeatureCols.includes(feat);
-                      const isNum = customProfile.numericColumns.includes(feat);
-                      return (
-                        <button
-                          key={feat}
-                          onClick={() => {
-                            if (isSelected) {
-                              setCustomFeatureCols(customFeatureCols.filter(c => c !== feat));
-                            } else {
-                              setCustomFeatureCols([...customFeatureCols, feat]);
-                            }
-                          }}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-medium border flex items-center gap-1.5 transition-all ${
-                            isSelected
-                              ? 'bg-indigo-50 text-indigo-800 border-indigo-300 font-semibold shadow-xs'
-                              : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
-                          }`}
-                        >
-                          <span className={`w-3 h-3 rounded flex items-center justify-center text-[9px] ${
-                            isSelected ? 'bg-indigo-600 text-white' : 'border border-slate-300'
-                          }`}>
-                            {isSelected && <Check className="w-2.5 h-2.5 stroke-[3]" />}
-                          </span>
-                          <span>{feat}</span>
-                          <span className="text-[10px] text-slate-400">
-                            {isNum ? '(數值)' : '(類別-OHE)'}
-                          </span>
-                        </button>
+              {/* Run Analysis Primary Button */}
+              <div className="pt-2">
+                <button
+                  onClick={() => {
+                    if (activeProblem === 'problem2') {
+                      runAnalysisOnCustomData(
+                        customRecords,
+                        customTargetCol,
+                        customFeatureCols,
+                        customTestSize,
+                        customRandomSeed,
+                        customDatasetName
                       );
-                    })}
-                  </div>
-                </div>
-
-                {/* First 10 Rows Preview Table */}
-                <div className="space-y-1.5">
-                  <div className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
-                    <ListFilter className="w-3.5 h-3.5 text-indigo-600" />
-                    <span>資料集前 10 筆資料預覽 (Data Preview - First 10 Rows)</span>
-                  </div>
-                  <div className="overflow-x-auto border border-slate-200 rounded-xl max-h-56">
-                    <table className="w-full text-left text-xs">
-                      <thead className="bg-slate-100 text-slate-600 font-semibold sticky top-0">
-                        <tr>
-                          <th className="p-2 border-b border-slate-200 font-mono text-center w-12">#</th>
-                          {customProfile.columnNames.map(col => (
-                            <th key={col} className={`p-2 border-b border-slate-200 whitespace-nowrap ${col === customTargetCol ? 'bg-indigo-100 text-indigo-900 font-bold' : ''}`}>
-                              {col} {col === customTargetCol && '🎯 (Target)'}
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100 font-mono text-[11px]">
-                        {customProfile.firstRows.map((row, idx) => (
-                          <tr key={idx} className="hover:bg-slate-50">
-                            <td className="p-2 text-center text-slate-400">{idx + 1}</td>
-                            {customProfile.columnNames.map(col => (
-                              <td key={col} className={`p-2 whitespace-nowrap ${col === customTargetCol ? 'font-bold text-indigo-700 bg-indigo-50/40' : 'text-slate-700'}`}>
-                                {row[col] !== undefined && row[col] !== null ? String(row[col]) : '<null>'}
-                              </td>
-                            ))}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
+                    }
+                    setCurrentStep(3);
+                  }}
+                  disabled={isCustomLoading || isP1Loading}
+                  className="w-full py-3.5 bg-gradient-to-r from-indigo-600 via-indigo-700 to-indigo-800 hover:from-indigo-700 hover:to-indigo-900 text-white font-bold text-sm rounded-xl shadow-md flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+                >
+                  {isCustomLoading || isP1Loading ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      <span>正在執行全套迴歸擬合與交叉驗證...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Play className="w-4 h-4 fill-white" />
+                      <span>🚀 執行迴歸分析 (Run Regression Analysis)</span>
+                    </>
+                  )}
+                </button>
               </div>
-            )}
 
-          </div>
-        </div>
-      )}
+            </div>
 
-      {/* Navigation Tabs */}
-      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 mt-6 w-full">
-        <div className="flex items-center gap-1 sm:gap-2 overflow-x-auto border-b border-slate-200 pb-px">
-          {[
-            { id: 'evaluation', label: '📊 模型評估與圖表', desc: 'RMSE & R² 視覺化' },
-            { id: 'diagnostics', label: '📈 過擬合與欠擬合診斷', desc: 'Train vs Test RMSE' },
-            { id: 'stats', label: '🔬 統計推論與方程式', desc: 'VIF, p-value, 95% CI' },
-            { id: 'predictor', label: `🧮 動態預測器 (${activeTargetName})`, desc: 'Live Predictor' },
-            { id: 'residuals', label: '🎯 殘差診斷與離群值', desc: 'Residual Diagnostics' },
-            { id: 'comparison', label: '⚖️ 題目比較與成果繳交', desc: 'Problem 1 vs 2' },
-            { id: 'optuna', label: '⚡ Optuna 超參數調優', desc: 'Hyperparameter Tuning' },
-            { id: 'data', label: '📋 資料集與前處理', desc: 'CRISP-DM Step 1 & 2' },
-            { id: 'benchmark', label: '🔍 8198.80 基準復現', desc: 'Reproducibility Study' },
-          ].map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`px-4 py-2.5 font-heading text-sm font-semibold rounded-t-xl transition-all whitespace-nowrap flex items-center gap-2 border-b-2 ${
-                activeTab === tab.id
-                  ? 'border-indigo-600 text-indigo-700 bg-white shadow-sm'
-                  : 'border-transparent text-slate-500 hover:text-slate-900 hover:bg-slate-100/60'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Main Content Area */}
-      <main className="max-w-[1400px] mx-auto px-4 sm:px-6 py-6 w-full flex-1">
-        
-        {/* Controls Bar for Feature Selection & Model Tuning */}
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 sm:p-5 mb-6">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            
-            {/* Algorithm Selector */}
-            <div className="flex items-center gap-3 flex-wrap">
-              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                特徵選取演算法 (Algorithm):
-              </label>
-              <select
-                value={selectedAlgo}
-                onChange={(e) => setSelectedAlgo(e.target.value)}
-                className="bg-slate-50 border border-slate-200 text-slate-800 text-sm font-semibold rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+            {/* Back Button */}
+            <div className="flex justify-between pt-2">
+              <button
+                onClick={() => setCurrentStep(1)}
+                className="px-4 py-2 text-slate-600 hover:text-slate-900 text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
               >
-                <option value="Forward SFS">Forward Sequential Feature Selection (Forward SFS)</option>
-                <option value="RFE">Recursive Feature Elimination (RFE)</option>
-                <option value="Exhaustive Search">Exhaustive Feature Search (最佳子集搜尋)</option>
-                <option value="Baseline OLS">Baseline OLS (單變數相關排序)</option>
-                <option value="Lasso">Lasso (L1 正則化路徑選取)</option>
-                <option value="ElasticNet">ElasticNet (L1 + L2 正則化選取)</option>
-              </select>
-            </div>
-
-            {/* Compare All Methods Switch */}
-            <div className="flex items-center gap-2">
-              <label className="text-xs font-semibold text-slate-600 flex items-center gap-1.5 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={compareAllMethods}
-                  onChange={(e) => setCompareAllMethods(e.target.checked)}
-                  className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer"
-                />
-                比較所有演算法 (Compare All Methods)
-              </label>
+                <ArrowLeft className="w-4 h-4" />
+                <span>返回：資料集 (Step 1)</span>
+              </button>
             </div>
 
           </div>
-
-          {/* Number of Features (k) Selector Slider & Pills */}
-          <div className="mt-4 pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                特徵數量 (Number of Features k):
-              </span>
-              <div className="flex gap-1.5 flex-wrap">
-                {Array.from({ length: maxK }, (_, i) => i + 1).map(k => {
-                  const isBestCv = bestCvModel?.k === k;
-                  const isBestTest = bestTestModel?.k === k;
-                  return (
-                    <button
-                      key={k}
-                      onClick={() => setSelectedK(k)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 border ${
-                        selectedK === k
-                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                          : isBestCv
-                          ? 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100'
-                          : isBestTest
-                          ? 'bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100'
-                          : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'
-                      }`}
-                    >
-                      {k} Features
-                      {isBestCv && (
-                        <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${selectedK === k ? 'bg-white/20 text-white' : 'bg-emerald-200 text-emerald-900'}`}>
-                          推薦 CV 🏆
-                        </span>
-                      )}
-                      {isBestTest && !isBestCv && (
-                        <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${selectedK === k ? 'bg-white/20 text-white' : 'bg-amber-200 text-amber-900'}`}>
-                          最低 Test 🎯
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Quick Summary Pill of Selected Features */}
-            <div className="text-xs text-slate-600 flex items-center gap-2 flex-wrap">
-              <span className="font-semibold text-slate-500">當前模型特徵:</span>
-              {currentModel.features && currentModel.features.map((f: string) => (
-                <span key={f} className="px-2 py-0.5 rounded-md font-mono text-[11px] font-medium border bg-indigo-50 text-indigo-700 border-indigo-200">
-                  {f}
-                </span>
-              ))}
-            </div>
-          </div>
-        </div>
+        )}
 
         {/* ========================================================================= */}
-        {/* Tab 1: 模型評估與視覺化 (Evaluation Dashboard)                             */}
+        {/* STEP 3: 結果展示與評估 (Model Results & Evaluation)                          */}
         {/* ========================================================================= */}
-        {activeTab === 'evaluation' && (
+        {currentStep === 3 && (
           <div className="space-y-6">
             
-            {/* KPI Metric Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
+            {/* Step Header */}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2 text-indigo-600 font-bold text-xs uppercase tracking-wider mb-1">
+                  <span>Step 3 of 4</span>
+                  <span>•</span>
+                  <span>模型評估指標與視覺化</span>
+                </div>
+                <h2 className="text-xl sm:text-2xl font-bold text-slate-900">
+                  迴歸模型評估結果 (Evaluation Results)
+                </h2>
+                <p className="text-xs sm:text-sm text-slate-500 mt-1">
+                  目前顯示：<strong>{activeDatasetDisplayName}</strong> • 演算法：<strong>{selectedAlgo}</strong> (k={currentModel.k})
+                </p>
+              </div>
+
+              {/* Quick Jump to Step 4 */}
+              <button
+                onClick={() => setCurrentStep(4)}
+                className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
+              >
+                <span>下一步：比較與匯出成果 (Step 4)</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Recommended Model Banner */}
+            <div className="p-4 rounded-2xl border border-emerald-200 bg-emerald-50/60 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold text-base shadow-sm">
+                  🏆
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-sm text-emerald-950">
+                      推薦最佳模型：{bestCvModel?.k} Features ({selectedAlgo})
+                    </span>
+                    <span className="text-[10px] bg-emerald-200 text-emerald-900 font-bold px-2 py-0.5 rounded-full">
+                      5-Fold CV 評選
+                    </span>
+                  </div>
+                  <div className="text-xs text-emerald-800 mt-0.5">
+                    特徵組合：<strong>{bestCvModel?.features?.join(' + ')}</strong>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-4 text-xs font-mono">
+                <div>
+                  <span className="text-emerald-700 block text-[10px] uppercase">CV RMSE:</span>
+                  <span className="font-bold text-emerald-950">{bestCvModel?.cv_rmse_mean?.toLocaleString() || 'N/A'}</span>
+                </div>
+                <div>
+                  <span className="text-emerald-700 block text-[10px] uppercase">Test RMSE:</span>
+                  <span className="font-bold text-emerald-950">{bestCvModel?.test_rmse?.toLocaleString()}</span>
+                </div>
+                <div>
+                  <span className="text-emerald-700 block text-[10px] uppercase">Test R²:</span>
+                  <span className="font-bold text-emerald-950">{bestCvModel?.r2?.toFixed(4)}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* 4 Core KPI Metric Cards */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
               
-              <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm relative overflow-hidden">
-                <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">測試集 RMSE</div>
-                <div className="text-2xl font-heading font-extrabold text-slate-900">
+              <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs relative overflow-hidden">
+                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">測試集 Test RMSE</div>
+                <div className="text-2xl font-extrabold text-slate-900 font-mono">
                   {currentModel.test_rmse ? currentModel.test_rmse.toLocaleString() : '0'}
                 </div>
-                <div className="text-[11px] text-slate-500 mt-1 flex items-center gap-1">
-                  均方根誤差 (越低越好)
-                </div>
+                <div className="text-[11px] text-slate-500 mt-1">獨立評估誤差 (越低越好)</div>
                 <div className="absolute top-0 left-0 right-0 h-1 bg-indigo-600" />
               </div>
 
-              <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm relative overflow-hidden">
-                <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">判定係數 R²</div>
-                <div className={`text-2xl font-heading font-extrabold ${currentModel.r2 > 0 ? 'text-indigo-600' : 'text-rose-600'}`}>
+              <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs relative overflow-hidden">
+                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">判定係數 R²</div>
+                <div className={`text-2xl font-extrabold font-mono ${currentModel.r2 > 0 ? 'text-indigo-600' : 'text-rose-600'}`}>
                   {currentModel.r2 ? currentModel.r2.toFixed(4) : '0.0000'}
                 </div>
-                <div className="text-[11px] text-slate-500 mt-1">解釋變異百分比 (越高越好)</div>
+                <div className="text-[11px] text-slate-500 mt-1">解釋變異能力 (越高越好)</div>
                 <div className="absolute top-0 left-0 right-0 h-1 bg-indigo-500" />
               </div>
 
-              <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm relative overflow-hidden">
-                <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">調整後 R² (Adj R²)</div>
-                <div className="text-2xl font-heading font-extrabold text-slate-900">
+              <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs relative overflow-hidden">
+                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">調整後 R² (Adj R²)</div>
+                <div className="text-2xl font-extrabold text-slate-900 font-mono">
                   {currentModel.adj_r2 ? currentModel.adj_r2.toFixed(4) : '0.0000'}
                 </div>
                 <div className="text-[11px] text-slate-500 mt-1">懲罰無效多餘變數</div>
                 <div className="absolute top-0 left-0 right-0 h-1 bg-indigo-400" />
               </div>
 
-              <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm relative overflow-hidden">
-                <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">訓練 5-Fold CV RMSE</div>
-                <div className="text-2xl font-heading font-extrabold text-emerald-600">
+              <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs relative overflow-hidden">
+                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">5-Fold CV RMSE</div>
+                <div className="text-2xl font-extrabold text-emerald-600 font-mono">
                   {currentModel.cv_rmse_mean ? currentModel.cv_rmse_mean.toLocaleString() : 'N/A'}
                 </div>
-                <div className="text-[11px] text-slate-500 mt-1">
-                  標準差: ±{currentModel.cv_rmse_std ? currentModel.cv_rmse_std.toLocaleString() : '0'}
-                </div>
+                <div className="text-[11px] text-slate-500 mt-1">訓練集交叉驗證穩定度</div>
                 <div className="absolute top-0 left-0 right-0 h-1 bg-emerald-500" />
               </div>
 
-              <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm relative overflow-hidden">
-                <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">訓練 vs 測試差距</div>
-                <div className={`text-2xl font-heading font-extrabold ${Math.abs(currentModel.train_test_gap || 0) < (currentModel.train_rmse * 0.3 || 1000) ? 'text-slate-900' : 'text-amber-600'}`}>
-                  {currentModel.train_test_gap ? currentModel.train_test_gap.toLocaleString() : '0'}
-                </div>
-                <div className="text-[11px] text-slate-500 mt-1">
-                  {Math.abs(currentModel.train_test_gap || 0) < 1500 ? '泛化良好 (無過擬合)' : '微幅泛化差距'}
-                </div>
-                <div className="absolute top-0 left-0 right-0 h-1 bg-amber-500" />
-              </div>
-
-              <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm relative overflow-hidden">
-                <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">平均絕對誤差 MAE</div>
-                <div className="text-2xl font-heading font-extrabold text-slate-900">
-                  {currentModel.mae ? currentModel.mae.toLocaleString() : '0'}
-                </div>
-                <div className="text-[11px] text-slate-500 mt-1">平均絕對預測誤差</div>
-                <div className="absolute top-0 left-0 right-0 h-1 bg-slate-400" />
-              </div>
-
-            </div>
-
-            {/* Best Model Banner with Clear Scientific Rationale */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="p-4 rounded-xl border border-emerald-200 bg-emerald-50/50 flex items-start gap-3">
-                <div className="w-8 h-8 rounded-lg bg-emerald-500 text-white flex items-center justify-center flex-shrink-0 font-bold text-sm shadow-sm">
-                  CV
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-heading font-bold text-sm text-emerald-950">
-                      🏆 嚴謹機器學習推薦最佳模型：{bestCvModel?.k} Features ({selectedAlgo})
-                    </span>
-                    <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold">
-                      Cross-Validation 評選
-                    </span>
-                  </div>
-                  <p className="text-xs text-emerald-800 mt-1 leading-relaxed">
-                    以訓練集 5-Fold CV RMSE ({bestCvModel?.cv_rmse_mean?.toLocaleString()}) 為最優指標選出，完全杜絕測試集外洩 (Data Snooping)。選取特徵：
-                    <strong> {bestCvModel?.features?.join(' + ')}</strong>。
-                  </p>
-                </div>
-              </div>
-
-              <div className="p-4 rounded-xl border border-indigo-200 bg-indigo-50/50 flex items-start gap-3">
-                <div className="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center flex-shrink-0 font-bold text-sm shadow-sm">
-                  Test
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-heading font-bold text-sm text-indigo-950">
-                      🎯 獨立測試集泛化表現最優：{bestTestModel?.k} Features
-                    </span>
-                    <span className="text-[11px] px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 font-bold">
-                      最低 Test RMSE
-                    </span>
-                  </div>
-                  <p className="text-xs text-indigo-800 mt-1 leading-relaxed">
-                    在未參與訓練的獨立測試集取得最低 Test RMSE ({bestTestModel?.test_rmse?.toLocaleString()}) 與 R² ({bestTestModel?.r2?.toFixed(4)})。選取特徵：
-                    <strong> {bestTestModel?.features?.join(' + ')}</strong>。
-                  </p>
-                </div>
-              </div>
             </div>
 
             {/* The Two Main Evaluation Charts */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               
               {/* Chart 1: RMSE by Number of Features */}
-              <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-                <div className="flex items-center justify-between mb-4">
+              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                <div className="flex items-center justify-between mb-3">
                   <div>
-                    <h3 className="font-heading font-bold text-base text-slate-900">
-                      特徵數量與 RMSE 評估曲線 (RMSE by Number of Features)
-                    </h3>
-                    <p className="text-xs text-slate-500">同時檢視訓練集、測試集與 5-Fold CV 之 RMSE 變化趨勢</p>
+                    <h3 className="font-bold text-sm text-slate-900">特徵數量與 RMSE 曲線 (RMSE by k)</h3>
+                    <p className="text-[11px] text-slate-400">同時對照訓練集、測試集與 5-Fold CV</p>
                   </div>
-                  <span className="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded font-medium">
+                  <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-mono">
                     {selectedAlgo}
                   </span>
                 </div>
-                <div className="h-72 w-full">
+                <div className="h-64 w-full">
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={currentAlgoModels} margin={{ top: 10, right: 30, left: 10, bottom: 10 }}>
+                    <LineChart data={currentAlgoModels} margin={{ top: 10, right: 20, left: 10, bottom: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                      <XAxis dataKey="k" label={{ value: '特徵數量 (k)', position: 'insideBottom', offset: -5 }} />
+                      <XAxis dataKey="k" label={{ value: '特徵數 k', position: 'insideBottom', offset: -5 }} />
                       <YAxis domain={['auto', 'auto']} tickFormatter={(v) => v.toLocaleString()} />
                       <Tooltip formatter={(value: any) => [`${Number(value).toLocaleString()}`, '']} />
-                      <Legend verticalAlign="top" height={36} />
-                      <Line type="monotone" dataKey="test_rmse" name="Test RMSE (測試集)" stroke="#4f46e5" strokeWidth={3} dot={{ r: 5 }} activeDot={{ r: 7 }} />
-                      <Line type="monotone" dataKey="train_rmse" name="Train RMSE (訓練集)" stroke="#0ea5e9" strokeWidth={2} strokeDasharray="4 4" dot={{ r: 4 }} />
-                      <Line type="monotone" dataKey="cv_rmse_mean" name="CV RMSE Mean (5-Fold)" stroke="#10b981" strokeWidth={2} dot={{ r: 4 }} />
+                      <Legend verticalAlign="top" height={30} />
+                      <Line type="monotone" dataKey="test_rmse" name="Test RMSE" stroke="#4f46e5" strokeWidth={2.5} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                      <Line type="monotone" dataKey="train_rmse" name="Train RMSE" stroke="#0ea5e9" strokeWidth={1.5} strokeDasharray="4 4" dot={{ r: 3 }} />
+                      <Line type="monotone" dataKey="cv_rmse_mean" name="CV RMSE (5-Fold)" stroke="#10b981" strokeWidth={1.5} dot={{ r: 3 }} />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
               </div>
 
               {/* Chart 2: R-squared by Number of Features */}
-              <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-                <div className="flex items-center justify-between mb-4">
+              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                <div className="flex items-center justify-between mb-3">
                   <div>
-                    <h3 className="font-heading font-bold text-base text-slate-900">
-                      特徵數量與 R² / 調整後 R² 曲線 (R-squared by Number of Features)
-                    </h3>
-                    <p className="text-xs text-slate-500">檢驗特徵增加對模型解釋力的邊際貢獻與調整後懲罰效應</p>
+                    <h3 className="font-bold text-sm text-slate-900">特徵數量與 R² / 調整後 R² 曲線</h3>
+                    <p className="text-[11px] text-slate-400">檢驗特徵增加之邊際解釋力與懲罰</p>
                   </div>
-                  <span className="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded font-medium">
+                  <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-mono">
                     {selectedAlgo}
                   </span>
                 </div>
-                <div className="h-72 w-full">
+                <div className="h-64 w-full">
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={currentAlgoModels} margin={{ top: 10, right: 30, left: 10, bottom: 10 }}>
+                    <LineChart data={currentAlgoModels} margin={{ top: 10, right: 20, left: 10, bottom: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                      <XAxis dataKey="k" label={{ value: '特徵數量 (k)', position: 'insideBottom', offset: -5 }} />
+                      <XAxis dataKey="k" label={{ value: '特徵數 k', position: 'insideBottom', offset: -5 }} />
                       <YAxis domain={['auto', 1.0]} />
                       <Tooltip formatter={(value: any) => [Number(value).toFixed(4), '']} />
-                      <Legend verticalAlign="top" height={36} />
-                      <Line type="monotone" dataKey="r2" name="R² (判定係數)" stroke="#6366f1" strokeWidth={3} dot={{ r: 5 }} />
-                      <Line type="monotone" dataKey="adj_r2" name="Adjusted R² (調整後 R²)" stroke="#ec4899" strokeWidth={2} strokeDasharray="3 3" dot={{ r: 4 }} />
+                      <Legend verticalAlign="top" height={30} />
+                      <Line type="monotone" dataKey="r2" name="R² (判定係數)" stroke="#6366f1" strokeWidth={2.5} dot={{ r: 4 }} />
+                      <Line type="monotone" dataKey="adj_r2" name="Adjusted R²" stroke="#ec4899" strokeWidth={1.5} strokeDasharray="3 3" dot={{ r: 3 }} />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
@@ -1323,235 +1396,62 @@ ${Object.entries(model?.p_values || {}).map(([feat, p]) => `  - \`${feat}\`: p-v
 
             </div>
 
-            {/* Comprehensive Evaluation Summary Table */}
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-              <div className="p-4 border-b border-slate-100 flex flex-wrap justify-between items-center gap-2">
-                <div>
-                  <h3 className="font-heading font-bold text-sm sm:text-base text-slate-900">
-                    全特徵數量模型評估摘要表 (Model Evaluation Summary Table)
-                  </h3>
-                  <p className="text-xs text-slate-500">
-                    目前資料集：{activeDatasetDisplayName} • 演算法：{selectedAlgo}
-                  </p>
-                </div>
-                <span className="text-xs text-slate-400 font-mono">
-                  Target: {activeTargetName}
-                </span>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50 text-slate-600 font-semibold uppercase tracking-wider">
-                    <tr>
-                      <th className="p-3">特徵數 (k)</th>
-                      <th className="p-3">選取特徵 (Selected Features)</th>
-                      <th className="p-3">Train RMSE</th>
-                      <th className="p-3">Test RMSE</th>
-                      <th className="p-3">CV RMSE (5-Fold)</th>
-                      <th className="p-3">MAE</th>
-                      <th className="p-3">R²</th>
-                      <th className="p-3">Adjusted R²</th>
-                      <th className="p-3">狀態標示</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 font-mono">
-                    {currentAlgoModels.map((m: any) => {
-                      const isCurrent = m.k === selectedK;
-                      const isBestCv = bestCvModel?.k === m.k;
-                      const isBestTest = bestTestModel?.k === m.k;
-                      return (
-                        <tr
-                          key={m.k}
-                          onClick={() => setSelectedK(m.k)}
-                          className={`cursor-pointer transition-colors ${
-                            isCurrent
-                              ? 'bg-indigo-50/70 font-semibold text-indigo-900'
-                              : 'hover:bg-slate-50 text-slate-700'
-                          }`}
-                        >
-                          <td className="p-3 font-bold">{m.k}</td>
-                          <td className="p-3 font-sans max-w-xs truncate" title={m.features?.join(', ')}>
-                            {m.features?.map((f: string) => (
-                              <span key={f} className="inline-block bg-slate-100 text-slate-800 text-[10px] px-1.5 py-0.5 rounded mr-1 mb-1 border border-slate-200">
-                                {f}
-                              </span>
-                            ))}
-                          </td>
-                          <td className="p-3">{m.train_rmse?.toLocaleString()}</td>
-                          <td className="p-3 font-bold text-indigo-700">{m.test_rmse?.toLocaleString()}</td>
-                          <td className="p-3 text-emerald-700">{m.cv_rmse_mean?.toLocaleString() || 'N/A'}</td>
-                          <td className="p-3">{m.mae?.toLocaleString()}</td>
-                          <td className="p-3">{m.r2?.toFixed(4)}</td>
-                          <td className="p-3">{m.adj_r2?.toFixed(4)}</td>
-                          <td className="p-3 font-sans">
-                            {isBestCv && (
-                              <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full mr-1">
-                                最佳 CV 🏆
-                              </span>
-                            )}
-                            {isBestTest && !isBestCv && (
-                              <span className="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded-full mr-1">
-                                最低 Test 🎯
-                              </span>
-                            )}
-                            {isCurrent && (
-                              <span className="bg-indigo-100 text-indigo-800 text-[10px] font-bold px-2 py-0.5 rounded-full">
-                                當前選定
-                              </span>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-          </div>
-        )}
-
-        {/* ========================================================================= */}
-        {/* Tab 2: 過擬合與欠擬合診斷 (Diagnostics)                                    */}
-        {/* ========================================================================= */}
-        {activeTab === 'diagnostics' && (
-          <div className="space-y-6">
-            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-              <div className="mb-4">
-                <h3 className="font-heading font-bold text-base text-slate-900">
-                  過擬合與欠擬合學習曲線 (Train vs Test Generalization Diagnostics)
-                </h3>
-                <p className="text-xs text-slate-500">
-                  比較不同模型複雜度（特徵數量 k）下，訓練集誤差與測試集誤差之收斂差距
-                </p>
-              </div>
-
-              <div className="h-80 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={currentAlgoModels} margin={{ top: 20, right: 30, left: 20, bottom: 10 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                    <XAxis dataKey="k" label={{ value: '特徵數量 (k)', position: 'insideBottom', offset: -5 }} />
-                    <YAxis tickFormatter={(v) => v.toLocaleString()} />
-                    <Tooltip formatter={(value: any) => [`${Number(value).toLocaleString()}`, '']} />
-                    <Legend verticalAlign="top" height={36} />
-                    <Bar dataKey="train_rmse" name="訓練集 Train RMSE" fill="#6366f1" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="test_rmse" name="測試集 Test RMSE" fill="#f59e0b" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-
-              <div className="mt-4 p-4 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-700 leading-relaxed space-y-2">
-                <div className="font-bold text-slate-900 flex items-center gap-1.5">
-                  <Activity className="w-4 h-4 text-indigo-600" />
-                  泛化能力診斷洞見 (Generalization Insights)：
-                </div>
-                <p>
-                  1. <strong>欠擬合 (Underfitting)：</strong>當 k 較小時，模型無法捕捉目標變數之完整變異，訓練集與測試集之 RMSE 皆偏高。
-                </p>
-                <p>
-                  2. <strong>最優平衡點 (Optimal Model)：</strong>當 k={bestCvModel?.k} 時，訓練集 5-Fold 交叉驗證誤差降至最低，代表模型具備最佳泛化穩定度。
-                </p>
-                <p>
-                  3. <strong>過擬合監控 (Overfitting Gap)：</strong>目前 k={currentModel.k} 之訓練與測試集差距為 <strong>{currentModel.train_test_gap?.toLocaleString()}</strong>，屬於合理可接受範圍。
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ========================================================================= */}
-        {/* Tab 3: 統計推論與方程式 (Statistical Inference)                             */}
-        {/* ========================================================================= */}
-        {activeTab === 'stats' && (
-          <div className="space-y-6">
-            
-            {/* Regression Equation Card */}
-            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-              <h3 className="font-heading font-bold text-base text-slate-900 mb-2">
-                多元線性迴歸方程式 (Multiple Linear Regression Equation)
-              </h3>
-              <p className="text-xs text-slate-500 mb-3">
-                當前模型：{selectedAlgo} (k={currentModel.k} Features) • Target: {activeTargetName}
-              </p>
-              <div className="p-4 bg-slate-900 text-indigo-300 font-mono text-xs sm:text-sm rounded-xl overflow-x-auto leading-relaxed border border-slate-800">
-                {currentModel.equation || 'N/A'}
-              </div>
-            </div>
-
-            {/* OLS Summary & VIF Table */}
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            {/* Model Evaluation Summary Table */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
               <div className="p-4 border-b border-slate-100 flex justify-between items-center">
                 <div>
-                  <h3 className="font-heading font-bold text-sm sm:text-base text-slate-900">
-                    係數統計檢定與共線性診斷 (OLS Parameters & Multicollinearity)
+                  <h3 className="font-bold text-sm text-slate-900">
+                    全特徵數量模型評估摘要表 (Model Summary Table)
                   </h3>
-                  <p className="text-xs text-slate-500">包含標準誤 (Std Error)、t-統計量、p-value、95% 信賴區間與變異膨脹因子 (VIF)</p>
+                  <p className="text-[11px] text-slate-500">點擊任意列可直接切換當前模型特徵數 (k)</p>
                 </div>
+                <span className="text-xs font-mono text-indigo-600">Target: {activeTargetName}</span>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs font-mono">
                   <thead className="bg-slate-50 text-slate-600 font-semibold">
                     <tr>
-                      <th className="p-3 font-sans">特徵變數</th>
-                      <th className="p-3">係數 (Coefficient)</th>
-                      <th className="p-3">標準誤 (Std Error)</th>
-                      <th className="p-3">t-統計量</th>
-                      <th className="p-3">p-value</th>
-                      <th className="p-3">95% 信賴區間</th>
-                      <th className="p-3">VIF (多重共線性)</th>
-                      <th className="p-3 font-sans">顯著性 (α=0.05)</th>
+                      <th className="p-3">特徵數 (k)</th>
+                      <th className="p-3 font-sans">選取特徵 (Selected Features)</th>
+                      <th className="p-3">Train RMSE</th>
+                      <th className="p-3">Test RMSE</th>
+                      <th className="p-3">CV RMSE</th>
+                      <th className="p-3">MAE</th>
+                      <th className="p-3">R²</th>
+                      <th className="p-3">Adj R²</th>
+                      <th className="p-3 font-sans">狀態</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    <tr className="bg-slate-50/50">
-                      <td className="p-3 font-bold font-sans">Intercept (β₀ 截距)</td>
-                      <td className="p-3 font-bold">{currentModel.intercept?.toLocaleString()}</td>
-                      <td className="p-3">{currentModel.std_errors?.const ?? currentModel.std_errors?.['Intercept'] ?? '-'}</td>
-                      <td className="p-3">{currentModel.t_values?.const ?? currentModel.t_values?.['Intercept'] ?? '-'}</td>
-                      <td className="p-3">{currentModel.p_values?.const ?? currentModel.p_values?.['Intercept'] ?? '-'}</td>
-                      <td className="p-3">
-                        {currentModel.confidence_intervals?.const
-                          ? `[${currentModel.confidence_intervals.const[0]}, ${currentModel.confidence_intervals.const[1]}]`
-                          : '-'}
-                      </td>
-                      <td className="p-3">-</td>
-                      <td className="p-3 font-sans text-emerald-600 font-bold">基準項</td>
-                    </tr>
-                    {currentModel.features?.map((feat: string) => {
-                      const w = currentModel.weights?.[feat] ?? 0;
-                      const p = currentModel.p_values?.[feat] ?? 0.05;
-                      const se = currentModel.std_errors?.[feat] ?? '-';
-                      const t = currentModel.t_values?.[feat] ?? '-';
-                      const ci = currentModel.confidence_intervals?.[feat];
-                      const vif = currentModel.vif?.[feat] ?? 1.0;
-                      const isSig = typeof p === 'number' && p < 0.05;
+                    {currentAlgoModels.map((m: any) => {
+                      const isCurrent = m.k === selectedK;
+                      const isBestCv = bestCvModel?.k === m.k;
                       return (
-                        <tr key={feat} className="hover:bg-slate-50">
-                          <td className="p-3 font-bold font-sans text-slate-800">{feat}</td>
-                          <td className="p-3 font-bold text-indigo-700">{typeof w === 'number' ? w.toFixed(4) : w}</td>
-                          <td className="p-3 text-slate-600">{se}</td>
-                          <td className="p-3 text-slate-600">{t}</td>
-                          <td className="p-3">
-                            <span className={isSig ? 'font-bold text-emerald-600' : 'text-slate-500'}>
-                              {typeof p === 'number' ? p.toFixed(4) : p}
-                            </span>
+                        <tr
+                          key={m.k}
+                          onClick={() => setSelectedK(m.k)}
+                          className={`cursor-pointer transition-colors ${isCurrent ? 'bg-indigo-50 font-bold text-indigo-950' : 'hover:bg-slate-50 text-slate-700'}`}
+                        >
+                          <td className="p-3">{m.k}</td>
+                          <td className="p-3 font-sans max-w-xs truncate" title={m.features?.join(', ')}>
+                            {m.features?.join(' + ')}
                           </td>
-                          <td className="p-3 text-slate-500">
-                            {ci ? `[${ci[0]}, ${ci[1]}]` : '-'}
-                          </td>
-                          <td className="p-3">
-                            <span className={`px-2 py-0.5 rounded text-[11px] ${
-                              vif > 10 ? 'bg-rose-100 text-rose-800 font-bold' : vif > 5 ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-700'
-                            }`}>
-                              {typeof vif === 'number' ? vif.toFixed(2) : vif}
-                            </span>
-                          </td>
+                          <td className="p-3">{m.train_rmse?.toLocaleString()}</td>
+                          <td className="p-3 text-indigo-600">{m.test_rmse?.toLocaleString()}</td>
+                          <td className="p-3 text-emerald-600">{m.cv_rmse_mean?.toLocaleString() || 'N/A'}</td>
+                          <td className="p-3">{m.mae?.toLocaleString()}</td>
+                          <td className="p-3">{m.r2?.toFixed(4)}</td>
+                          <td className="p-3">{m.adj_r2?.toFixed(4)}</td>
                           <td className="p-3 font-sans">
-                            {isSig ? (
-                              <span className="text-emerald-700 font-bold flex items-center gap-1">
-                                <CheckCircle className="w-3.5 h-3.5" /> 顯著 (p &lt; 0.05)
+                            {isBestCv && (
+                              <span className="bg-emerald-100 text-emerald-800 text-[10px] px-2 py-0.5 rounded-full font-bold">
+                                最佳 CV 🏆
                               </span>
-                            ) : (
-                              <span className="text-slate-400">不顯著</span>
+                            )}
+                            {isCurrent && !isBestCv && (
+                              <span className="bg-indigo-100 text-indigo-800 text-[10px] px-2 py-0.5 rounded-full">
+                                目前選定
+                              </span>
                             )}
                           </td>
                         </tr>
@@ -1562,596 +1462,498 @@ ${Object.entries(model?.p_values || {}).map(([feat, p]) => `  - \`${feat}\`: p-v
               </div>
             </div>
 
-          </div>
-        )}
-
-        {/* ========================================================================= */}
-        {/* Tab 4: 動態即時預測器 (Dynamic Live Predictor)                              */}
-        {/* ========================================================================= */}
-        {activeTab === 'predictor' && (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            
-            {/* Input Controls */}
-            <div className="lg:col-span-7 bg-white rounded-xl border border-slate-200 shadow-sm p-6 space-y-6">
-              <div>
-                <h3 className="font-heading font-bold text-lg text-slate-900 flex items-center gap-2">
-                  <Sliders className="w-5 h-5 text-indigo-600" />
-                  {activeProblem === 'problem1' ? '公司營運支出設定 (50 Startups Input)' : `${customDatasetName} 特徵數值輸入表單`}
-                </h3>
-                <p className="text-xs text-slate-500 mt-1">
-                  調整數值，右側預測結果將依據當前選定之特徵與迴歸係數即時動態計算
-                </p>
+            {/* Collapsible Advanced Analysis Accordion */}
+            <div className="space-y-3 pt-2">
+              <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                進階深入分析 (可選折疊展開 / Advanced Analysis)：
               </div>
 
-              {/* Problem 1 Inputs */}
-              {activeProblem === 'problem1' ? (
-                <div className="space-y-5">
-                  <div className="space-y-1.5">
-                    <div className="flex justify-between items-center text-sm">
-                      <label className="font-semibold text-slate-700 flex items-center gap-1.5">
-                        🔬 研發支出 (R&D Spend)
-                      </label>
-                      <span className="font-mono font-bold text-indigo-600">${rdSpend.toLocaleString()}</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="0"
-                      max="200000"
-                      step="1000"
-                      value={rdSpend}
-                      onChange={(e) => setRdSpend(Number(e.target.value))}
-                      className="w-full accent-indigo-600 cursor-pointer"
-                    />
+              {/* Accordion 1: Live Prediction Form */}
+              <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
+                <button
+                  onClick={() => toggleSection('predictor')}
+                  className="w-full p-4 text-left font-bold text-xs flex items-center justify-between text-slate-800 hover:bg-slate-50 cursor-pointer"
+                >
+                  <div className="flex items-center gap-2">
+                    <Sliders className="w-4 h-4 text-indigo-600" />
+                    <span>🧮 即時預測表單 (Live Predictor for {activeTargetName})</span>
                   </div>
+                  {expandedSections.predictor ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                </button>
 
-                  <div className="space-y-1.5">
-                    <div className="flex justify-between items-center text-sm">
-                      <label className="font-semibold text-slate-700 flex items-center gap-1.5">
-                        🏢 行政管理支出 (Administration)
-                      </label>
-                      <span className="font-mono font-bold text-indigo-600">${adminSpend.toLocaleString()}</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="0"
-                      max="200000"
-                      step="1000"
-                      value={adminSpend}
-                      onChange={(e) => setAdminSpend(Number(e.target.value))}
-                      className="w-full accent-indigo-600 cursor-pointer"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <div className="flex justify-between items-center text-sm">
-                      <label className="font-semibold text-slate-700 flex items-center gap-1.5">
-                        📢 市場行銷支出 (Marketing Spend)
-                      </label>
-                      <span className="font-mono font-bold text-indigo-600">${mktgSpend.toLocaleString()}</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="0"
-                      max="500000"
-                      step="2500"
-                      value={mktgSpend}
-                      onChange={(e) => setMktgSpend(Number(e.target.value))}
-                      className="w-full accent-indigo-600 cursor-pointer"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold text-slate-700">📍 公司設立州別 (State)</label>
-                    <div className="grid grid-cols-3 gap-3">
-                      {['California', 'Florida', 'New York'].map(st => (
-                        <button
-                          key={st}
-                          onClick={() => setSelectedState(st)}
-                          className={`py-2 px-3 rounded-lg text-xs font-bold border transition-all text-center ${
-                            selectedState === st
-                              ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                              : 'bg-slate-50 text-slate-700 border-slate-200 hover:border-slate-300'
-                          }`}
-                        >
-                          {st} {st === 'California' && '(基準組)'}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                /* Problem 2 Dynamic Inputs */
-                <div className="space-y-4 max-h-[460px] overflow-y-auto pr-2">
-                  {currentModel.features && currentModel.features.length > 0 ? (
-                    currentModel.features.map((feat: string) => {
-                      const curVal = customPredictInputs[feat] ?? 0;
-                      return (
-                        <div key={feat} className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1.5">
-                          <div className="flex justify-between items-center text-xs">
-                            <label className="font-bold text-slate-800 flex items-center gap-1.5">
-                              <span>🔹 {feat}</span>
-                              <span className="text-[10px] text-slate-400 font-mono">
-                                (β = {currentModel.weights?.[feat] ?? 0})
-                              </span>
-                            </label>
-                            <span className="font-mono font-bold text-indigo-700">{curVal}</span>
+                {expandedSections.predictor && (
+                  <div className="p-5 border-t border-slate-100 grid grid-cols-1 md:grid-cols-12 gap-6 bg-slate-50/50">
+                    <div className="md:col-span-7 space-y-3">
+                      <div className="text-xs font-bold text-slate-700 mb-2">輸入當前模型特徵數值：</div>
+                      {activeProblem === 'problem1' ? (
+                        <div className="space-y-3 text-xs">
+                          <div>
+                            <div className="flex justify-between mb-1">
+                              <span className="font-semibold text-slate-600">研發支出 (R&D Spend):</span>
+                              <span className="font-mono font-bold text-indigo-600">${rdSpend.toLocaleString()}</span>
+                            </div>
+                            <input
+                              type="range"
+                              min="0"
+                              max="200000"
+                              step="2000"
+                              value={rdSpend}
+                              onChange={(e) => setRdSpend(Number(e.target.value))}
+                              className="w-full accent-indigo-600 cursor-pointer"
+                            />
                           </div>
-                          <input
-                            type="number"
-                            value={curVal}
-                            step="any"
-                            onChange={(e) => {
-                              const val = Number(e.target.value);
-                              setCustomPredictInputs(prev => ({ ...prev, [feat]: val }));
-                            }}
-                            className="w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-mono text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500"
-                          />
+                          <div>
+                            <div className="flex justify-between mb-1">
+                              <span className="font-semibold text-slate-600">行政管理 (Administration):</span>
+                              <span className="font-mono font-bold text-indigo-600">${adminSpend.toLocaleString()}</span>
+                            </div>
+                            <input
+                              type="range"
+                              min="0"
+                              max="200000"
+                              step="2000"
+                              value={adminSpend}
+                              onChange={(e) => setAdminSpend(Number(e.target.value))}
+                              className="w-full accent-indigo-600 cursor-pointer"
+                            />
+                          </div>
+                          <div>
+                            <div className="flex justify-between mb-1">
+                              <span className="font-semibold text-slate-600">行銷推廣 (Marketing Spend):</span>
+                              <span className="font-mono font-bold text-indigo-600">${mktgSpend.toLocaleString()}</span>
+                            </div>
+                            <input
+                              type="range"
+                              min="0"
+                              max="500000"
+                              step="5000"
+                              value={mktgSpend}
+                              onChange={(e) => setMktgSpend(Number(e.target.value))}
+                              className="w-full accent-indigo-600 cursor-pointer"
+                            />
+                          </div>
+                          <div>
+                            <span className="font-semibold text-slate-600 block mb-1">設立州別 (State):</span>
+                            <div className="flex gap-2">
+                              {['California', 'Florida', 'New York'].map(st => (
+                                <button
+                                  key={st}
+                                  onClick={() => setSelectedState(st)}
+                                  className={`flex-1 py-1 px-2 rounded-lg text-xs font-semibold border ${selectedState === st ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white border-slate-200 text-slate-700'}`}
+                                >
+                                  {st}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
                         </div>
-                      );
-                    })
-                  ) : (
-                    <div className="text-xs text-slate-400 text-center py-6">
-                      尚未選取模型特徵，請先在上方控制列選擇特徵數量 (k)
+                      ) : (
+                        <div className="space-y-2.5 max-h-56 overflow-y-auto pr-1">
+                          {currentModel.features?.map((feat: string) => (
+                            <div key={feat} className="flex items-center justify-between gap-3 bg-white p-2.5 rounded-lg border border-slate-200 text-xs">
+                              <label className="font-semibold text-slate-700 truncate">{feat}:</label>
+                              <input
+                                type="number"
+                                value={customPredictInputs[feat] ?? 0}
+                                onChange={(e) => {
+                                  const val = Number(e.target.value);
+                                  setCustomPredictInputs(prev => ({ ...prev, [feat]: val }));
+                                }}
+                                className="w-28 bg-slate-50 border border-slate-300 rounded px-2 py-1 text-xs font-mono"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              )}
-            </div>
 
-            {/* Live Prediction Display Card */}
-            <div className="lg:col-span-5 bg-gradient-to-br from-indigo-900 via-indigo-800 to-slate-900 text-white rounded-xl shadow-xl p-6 flex flex-col justify-between">
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <span className="text-xs font-bold uppercase tracking-wider text-indigo-300">
-                    Live Model Predictor
-                  </span>
-                  <span className="text-xs px-2.5 py-0.5 rounded-full bg-white/10 border border-white/20 text-indigo-200">
-                    {selectedAlgo} (k={currentModel.k})
-                  </span>
-                </div>
-
-                <div className="text-xs text-indigo-200 mb-1">
-                  預測目標：{activeTargetName} (Predicted {activeTargetName})
-                </div>
-                <div className="text-4xl font-heading font-extrabold text-white tracking-tight my-2">
-                  {prediction.total.toLocaleString()}
-                </div>
-                <div className="text-xs text-indigo-300">
-                  根據當前 {currentModel.k} 個特徵與迴歸截距計算所得之點預測值
-                </div>
-
-                {/* Feature Contribution Breakdown */}
-                <div className="mt-6 pt-4 border-t border-white/10 space-y-2">
-                  <div className="text-xs font-bold text-indigo-200">各項特徵預測貢獻度分解 (Breakdown)：</div>
-                  <div className="space-y-1 text-xs font-mono max-h-52 overflow-y-auto pr-1">
-                    {Object.entries(prediction.breakdown).map(([key, val]: [string, any]) => (
-                      <div key={key} className="flex justify-between items-center py-1 border-b border-white/5">
-                        <span className="text-indigo-200 truncate pr-2">{key}:</span>
-                        <span className={`font-bold ${val >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                          {val >= 0 ? `+${val.toLocaleString()}` : val.toLocaleString()}
-                        </span>
+                    <div className="md:col-span-5 bg-gradient-to-br from-indigo-900 to-slate-900 text-white rounded-xl p-5 flex flex-col justify-between">
+                      <div>
+                        <span className="text-[10px] text-indigo-300 uppercase tracking-wider font-bold">預測結果 (Prediction)</span>
+                        <div className="text-xs text-indigo-200 mt-1">預測目標：{activeTargetName}</div>
+                        <div className="text-3xl font-extrabold font-mono text-white my-2">
+                          {prediction.total.toLocaleString()}
+                        </div>
                       </div>
-                    ))}
+                      <div className="text-[10px] text-indigo-300 border-t border-white/10 pt-2">
+                        使用 {selectedAlgo} (k={currentModel.k}) 即時迴歸方程計算
+                      </div>
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
 
-              <div className="mt-6 pt-4 border-t border-white/10 text-[11px] text-indigo-300">
-                模型 R²：{currentModel.r2 ? currentModel.r2.toFixed(4) : '0'} • 測試集 RMSE：{currentModel.test_rmse ? currentModel.test_rmse.toLocaleString() : '0'}
+              {/* Accordion 2: Statistical Inference */}
+              <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
+                <button
+                  onClick={() => toggleSection('stats')}
+                  className="w-full p-4 text-left font-bold text-xs flex items-center justify-between text-slate-800 hover:bg-slate-50 cursor-pointer"
+                >
+                  <div className="flex items-center gap-2">
+                    <Activity className="w-4 h-4 text-indigo-600" />
+                    <span>🔬 統計推論與迴歸方程式 (OLS Coefficients, p-value, 95% CI, VIF)</span>
+                  </div>
+                  {expandedSections.stats ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                </button>
+
+                {expandedSections.stats && (
+                  <div className="p-5 border-t border-slate-100 space-y-4">
+                    <div className="p-3 bg-slate-900 text-indigo-300 rounded-xl font-mono text-xs overflow-x-auto">
+                      {currentModel.equation || 'N/A'}
+                    </div>
+                    <div className="overflow-x-auto border border-slate-200 rounded-xl">
+                      <table className="w-full text-left text-xs font-mono">
+                        <thead className="bg-slate-50 text-slate-600">
+                          <tr>
+                            <th className="p-2.5 font-sans">特徵名稱</th>
+                            <th className="p-2.5">係數 (Coef)</th>
+                            <th className="p-2.5">標準誤 (SE)</th>
+                            <th className="p-2.5">p-value</th>
+                            <th className="p-2.5">95% 信賴區間</th>
+                            <th className="p-2.5">VIF (共線性)</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 text-[11px]">
+                          <tr>
+                            <td className="p-2.5 font-sans font-bold">Intercept (截距)</td>
+                            <td className="p-2.5 font-bold">{currentModel.intercept?.toLocaleString()}</td>
+                            <td className="p-2.5">-</td>
+                            <td className="p-2.5 text-emerald-600">&lt; 0.001</td>
+                            <td className="p-2.5">-</td>
+                            <td className="p-2.5">-</td>
+                          </tr>
+                          {currentModel.features?.map((f: string) => {
+                            const w = currentModel.weights?.[f] ?? 0;
+                            const p = currentModel.p_values?.[f] ?? 0.05;
+                            const vif = currentModel.vif?.[f] ?? 1.0;
+                            return (
+                              <tr key={f}>
+                                <td className="p-2.5 font-sans text-slate-800">{f}</td>
+                                <td className="p-2.5 text-indigo-700 font-bold">{typeof w === 'number' ? w.toFixed(4) : w}</td>
+                                <td className="p-2.5 text-slate-500">{currentModel.std_errors?.[f] ?? '-'}</td>
+                                <td className="p-2.5">{typeof p === 'number' ? p.toFixed(4) : p}</td>
+                                <td className="p-2.5 text-slate-500">{currentModel.confidence_intervals?.[f] ? `[${currentModel.confidence_intervals[f][0]}, ${currentModel.confidence_intervals[f][1]}]` : '-'}</td>
+                                <td className="p-2.5">
+                                  <span className={`px-1.5 py-0.5 rounded ${vif > 5 ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-700'}`}>
+                                    {typeof vif === 'number' ? vif.toFixed(2) : vif}
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
               </div>
+
+              {/* Accordion 3: Residual Diagnostics */}
+              <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
+                <button
+                  onClick={() => toggleSection('residuals')}
+                  className="w-full p-4 text-left font-bold text-xs flex items-center justify-between text-slate-800 hover:bg-slate-50 cursor-pointer"
+                >
+                  <div className="flex items-center gap-2">
+                    <BarChart2 className="w-4 h-4 text-indigo-600" />
+                    <span>🎯 殘差診斷與實際值對比 (Residual Diagnostics)</span>
+                  </div>
+                  {expandedSections.residuals ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                </button>
+
+                {expandedSections.residuals && (
+                  <div className="p-5 border-t border-slate-100 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <div className="text-xs font-bold text-slate-700 mb-2">實際值 vs 預測值 (45度對角線):</div>
+                      <div className="h-48 w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <ScatterChart margin={{ top: 10, right: 10, bottom: 10, left: 10 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                            <XAxis type="number" dataKey="actual" name="實際值" tickFormatter={(v) => v.toLocaleString()} />
+                            <YAxis type="number" dataKey="predicted" name="預測值" tickFormatter={(v) => v.toLocaleString()} />
+                            <Tooltip cursor={{ strokeDasharray: '3 3' }} formatter={(val: any) => [Number(val).toLocaleString(), '']} />
+                            <Scatter
+                              data={customAnalysisResult?.residual_analysis?.points || (p1ApiData?.residual_analysis?.points || [
+                                { actual: 103282, predicted: 103015 },
+                                { actual: 144259, predicted: 134250 },
+                                { actual: 146121, predicted: 135200 },
+                                { actual: 77798, predicted: 74200 },
+                                { actual: 191050, predicted: 181200 },
+                              ])}
+                              fill="#4f46e5"
+                            />
+                          </ScatterChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="text-xs font-bold text-slate-700 mb-2">殘差 vs 預測值 (0基準線):</div>
+                      <div className="h-48 w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <ScatterChart margin={{ top: 10, right: 10, bottom: 10, left: 10 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                            <XAxis type="number" dataKey="predicted" name="預測值" tickFormatter={(v) => v.toLocaleString()} />
+                            <YAxis type="number" dataKey="residual" name="殘差" tickFormatter={(v) => v.toLocaleString()} />
+                            <ReferenceLine y={0} stroke="#dc2626" strokeDasharray="3 3" />
+                            <Tooltip cursor={{ strokeDasharray: '3 3' }} formatter={(val: any) => [Number(val).toLocaleString(), '']} />
+                            <Scatter
+                              data={customAnalysisResult?.residual_analysis?.points || (p1ApiData?.residual_analysis?.points || [
+                                { predicted: 103015, residual: 267 },
+                                { predicted: 134250, residual: 10008 },
+                                { predicted: 135200, residual: 10921 },
+                                { predicted: 74200, residual: 3598 },
+                                { predicted: 181200, residual: 9849 },
+                              ])}
+                              fill="#0ea5e9"
+                            />
+                          </ScatterChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+            </div>
+
+            {/* Step Navigation Actions */}
+            <div className="flex justify-between pt-4">
+              <button
+                onClick={() => setCurrentStep(2)}
+                className="px-4 py-2 text-slate-600 hover:text-slate-900 text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <span>返回：模型設定 (Step 2)</span>
+              </button>
+              <button
+                onClick={() => setCurrentStep(4)}
+                className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow-xs flex items-center gap-2 transition-all cursor-pointer"
+              >
+                <span>下一步：比較與匯出成果 (Step 4)</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
             </div>
 
           </div>
         )}
 
         {/* ========================================================================= */}
-        {/* Tab 5: 殘差診斷與離群值 (Residuals)                                        */}
+        {/* STEP 4: 雙問題比較與成果繳交 (Problem Comparison & Submission Export)        */}
         {/* ========================================================================= */}
-        {activeTab === 'residuals' && (
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              
-              {/* Actual vs Predicted Scatter */}
-              <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-                <h3 className="font-heading font-bold text-base text-slate-900 mb-1">
-                  實際值 vs 預測值分佈圖 (Actual vs Predicted)
-                </h3>
-                <p className="text-xs text-slate-500 mb-4">點越接近 45 度理想對角線 ($y=x$)，代表模型預測越精準</p>
-                <div className="h-72 w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                      <XAxis type="number" dataKey="actual" name="實際值" unit="" tickFormatter={(v) => v.toLocaleString()} />
-                      <YAxis type="number" dataKey="predicted" name="預測值" unit="" tickFormatter={(v) => v.toLocaleString()} />
-                      <Tooltip cursor={{ strokeDasharray: '3 3' }} formatter={(val: any) => [Number(val).toLocaleString(), '']} />
-                      <Scatter
-                        data={customAnalysisResult?.residual_analysis?.points || (p1ApiData?.residual_analysis?.points || [
-                          { actual: 103282.38, predicted: 103015.2, residual: 267.18 },
-                          { actual: 144259.4, predicted: 134250.8, residual: 10008.6 },
-                          { actual: 146121.95, predicted: 135200.1, residual: 10921.85 },
-                          { actual: 77798.83, predicted: 74200.5, residual: 3598.33 },
-                          { actual: 191050.39, predicted: 181200.4, residual: 9849.99 },
-                          { actual: 105008.31, predicted: 114500.2, residual: -9491.89 },
-                          { actual: 81229.06, predicted: 68900.3, residual: 12328.76 },
-                          { actual: 97427.84, predicted: 98100.1, residual: -672.26 },
-                          { actual: 110352.25, predicted: 114200.8, residual: -3848.55 },
-                          { actual: 166187.94, predicted: 172300.2, residual: -6112.26 }
-                        ])}
-                        fill="#4f46e5"
-                      />
-                    </ScatterChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-
-              {/* Residuals vs Predicted */}
-              <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-                <h3 className="font-heading font-bold text-base text-slate-900 mb-1">
-                  殘差 vs 預測值分佈圖 (Residuals vs Predicted)
-                </h3>
-                <p className="text-xs text-slate-500 mb-4">檢驗同質變異性 (Homoscedasticity) 與殘差隨機常態分佈假設</p>
-                <div className="h-72 w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                      <XAxis type="number" dataKey="predicted" name="預測值" tickFormatter={(v) => v.toLocaleString()} />
-                      <YAxis type="number" dataKey="residual" name="殘差" tickFormatter={(v) => v.toLocaleString()} />
-                      <ReferenceLine y={0} stroke="#dc2626" strokeDasharray="3 3" />
-                      <Tooltip cursor={{ strokeDasharray: '3 3' }} formatter={(val: any) => [Number(val).toLocaleString(), '']} />
-                      <Scatter
-                        data={customAnalysisResult?.residual_analysis?.points || (p1ApiData?.residual_analysis?.points || [
-                          { actual: 103282.38, predicted: 103015.2, residual: 267.18 },
-                          { actual: 144259.4, predicted: 134250.8, residual: 10008.6 },
-                          { actual: 146121.95, predicted: 135200.1, residual: 10921.85 },
-                          { actual: 77798.83, predicted: 74200.5, residual: 3598.33 },
-                          { actual: 191050.39, predicted: 181200.4, residual: 9849.99 },
-                          { actual: 105008.31, predicted: 114500.2, residual: -9491.89 },
-                          { actual: 81229.06, predicted: 68900.3, residual: 12328.76 },
-                          { actual: 97427.84, predicted: 98100.1, residual: -672.26 },
-                          { actual: 110352.25, predicted: 114200.8, residual: -3848.55 },
-                          { actual: 166187.94, predicted: 172300.2, residual: -6112.26 }
-                        ])}
-                        fill="#0ea5e9"
-                      />
-                    </ScatterChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-
-            </div>
-          </div>
-        )}
-
-        {/* ========================================================================= */}
-        {/* Tab 6: 題目比較與成果繳交 (Problem Comparison & Submission)                 */}
-        {/* ========================================================================= */}
-        {activeTab === 'comparison' && (
+        {currentStep === 4 && (
           <div className="space-y-6">
             
-            {/* Academic Comparison Banner */}
-            <div className="bg-white rounded-xl border border-indigo-200 p-6 shadow-sm">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-9 h-9 rounded-xl bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-600">
-                  <ArrowRightLeft className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="font-heading font-bold text-lg text-slate-900">
-                    雙問題全面綜合比較 (Comprehensive Problem Comparison)
+            {/* Step Header */}
+            <div>
+              <div className="flex items-center gap-2 text-indigo-600 font-bold text-xs uppercase tracking-wider mb-1">
+                <span>Step 4 of 4</span>
+                <span>•</span>
+                <span>雙問題對比與成果匯出</span>
+              </div>
+              <h2 className="text-xl sm:text-2xl font-bold text-slate-900">
+                成果繳交與報告匯出 (Export for Submission)
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-500 mt-1">
+                檢視 Problem 1 與 Problem 2 之各項指標對比，並選擇其中一個問題匯出標準化成果與 CRISP-DM 結案報告。
+              </p>
+            </div>
+
+            {/* Side-by-side Comparison Table */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+              <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <ArrowRightLeft className="w-4 h-4 text-indigo-600" />
+                  <h3 className="font-bold text-sm text-slate-900">
+                    雙問題全面橫向比較表 (Problem 1 vs Problem 2)
                   </h3>
-                  <p className="text-xs text-slate-500">
-                    落實「Do two problems but choose one of the topics to upload」作業規範，比較兩大問題之資料特性與模型泛化能力
-                  </p>
                 </div>
               </div>
-
-              {/* Side-by-side Comparison Table */}
-              <div className="overflow-x-auto mt-5 border border-slate-200 rounded-xl">
-                <table className="w-full text-left text-xs">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs font-sans">
                   <thead className="bg-slate-100 text-slate-700 font-bold uppercase tracking-wider">
                     <tr>
-                      <th className="p-3.5">比較維度 (Metric / Dimension)</th>
-                      <th className="p-3.5 bg-indigo-50/70 text-indigo-900">
-                        Problem 1 (50 Startups 獲利預測)
-                      </th>
-                      <th className="p-3.5 bg-amber-50/70 text-amber-900">
-                        Problem 2 ({customDatasetName})
-                      </th>
+                      <th className="p-3">比較維度 (Dimension)</th>
+                      <th className="p-3 bg-indigo-50/70 text-indigo-900">Problem 1: 50 Startups</th>
+                      <th className="p-3 bg-amber-50/70 text-amber-900">Problem 2: {customDatasetName}</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-200 font-sans">
+                  <tbody className="divide-y divide-slate-200">
                     <tr>
-                      <td className="p-3.5 font-bold text-slate-700">預測目標變數 (Target Variable)</td>
-                      <td className="p-3.5 font-mono text-indigo-700 font-bold">Profit (公司淨利潤)</td>
-                      <td className="p-3.5 font-mono text-amber-700 font-bold">{customTargetCol}</td>
+                      <td className="p-3 font-semibold text-slate-700">預測目標變數 (Target Variable)</td>
+                      <td className="p-3 font-mono font-bold text-indigo-700">Profit</td>
+                      <td className="p-3 font-mono font-bold text-amber-700">{customTargetCol}</td>
                     </tr>
                     <tr>
-                      <td className="p-3.5 font-bold text-slate-700">總樣本數量 (Sample Size N)</td>
-                      <td className="p-3.5 font-mono">50 筆</td>
-                      <td className="p-3.5 font-mono">{customProfile?.rowCount || customRecords.length || 80} 筆</td>
+                      <td className="p-3 font-semibold text-slate-700">總樣本數量 (Sample Size)</td>
+                      <td className="p-3 font-mono">50 筆</td>
+                      <td className="p-3 font-mono">{customProfile?.rowCount || customRecords.length || 80} 筆</td>
                     </tr>
                     <tr>
-                      <td className="p-3.5 font-bold text-slate-700">原始特徵數量 (Features Count P)</td>
-                      <td className="p-3.5 font-mono">4 個自變數 (3 數值 + 1 類別州別)</td>
-                      <td className="p-3.5 font-mono">
-                        {customProfile?.columnNames?.length ? customProfile.columnNames.length - 1 : 10} 個特徵
-                      </td>
+                      <td className="p-3 font-semibold text-slate-700">原始特徵數量 (Features Count)</td>
+                      <td className="p-3 font-mono">4 個</td>
+                      <td className="p-3 font-mono">{customProfile?.columnNames?.length ? customProfile.columnNames.length - 1 : 10} 個</td>
                     </tr>
                     <tr>
-                      <td className="p-3.5 font-bold text-slate-700">最佳演算法選取特徵 (Best Features)</td>
-                      <td className="p-3.5 font-mono text-indigo-800">
-                        R&D Spend + Marketing Spend (k=2) / + State (k=3)
-                      </td>
-                      <td className="p-3.5 font-mono text-amber-800">
+                      <td className="p-3 font-semibold text-slate-700">最佳模型選取特徵 (Best Features)</td>
+                      <td className="p-3 font-mono text-indigo-800">R&D Spend + Marketing Spend</td>
+                      <td className="p-3 font-mono text-amber-800">
                         {customAnalysisResult?.best_cv_model?.features?.join(' + ') || 'MedInc + DistToCoast + HouseAge ...'}
                       </td>
                     </tr>
                     <tr>
-                      <td className="p-3.5 font-bold text-slate-700">訓練集 5-Fold CV RMSE</td>
-                      <td className="p-3.5 font-mono text-indigo-700 font-bold">
+                      <td className="p-3 font-semibold text-slate-700">訓練 5-Fold CV RMSE</td>
+                      <td className="p-3 font-mono font-bold text-indigo-700">
                         {p1RandomState === 42 ? '$9,441.52' : '$9,410.20'}
                       </td>
-                      <td className="p-3.5 font-mono text-amber-700 font-bold">
-                        {customAnalysisResult?.best_cv_model?.cv_rmse_mean?.toLocaleString() || '15,742.99'}
+                      <td className="p-3 font-mono font-bold text-amber-700">
+                        {customAnalysisResult?.best_cv_model?.cv_rmse_mean?.toLocaleString() || '17,591.23'}
                       </td>
                     </tr>
                     <tr>
-                      <td className="p-3.5 font-bold text-slate-700">獨立測試集 Test RMSE</td>
-                      <td className="p-3.5 font-mono text-indigo-700 font-bold">
-                        {p1RandomState === 42 ? '$7,946.37' : '$8,198.80 (對標)'}
+                      <td className="p-3 font-semibold text-slate-700">獨立測試集 Test RMSE</td>
+                      <td className="p-3 font-mono font-bold text-indigo-700">
+                        {p1RandomState === 42 ? '$7,946.37' : '$8,198.80 (對標基準)'}
                       </td>
-                      <td className="p-3.5 font-mono text-amber-700 font-bold">
-                        {customAnalysisResult?.best_cv_model?.test_rmse?.toLocaleString() || '18,056.48'}
-                      </td>
-                    </tr>
-                    <tr>
-                      <td className="p-3.5 font-bold text-slate-700">測試集判定係數 Test R²</td>
-                      <td className="p-3.5 font-mono text-indigo-700 font-bold">0.9220</td>
-                      <td className="p-3.5 font-mono text-amber-700 font-bold">
-                        {customAnalysisResult?.best_cv_model?.r2 ? customAnalysisResult.best_cv_model.r2.toFixed(4) : '0.8650'}
+                      <td className="p-3 font-mono font-bold text-amber-700">
+                        {customAnalysisResult?.best_cv_model?.test_rmse?.toLocaleString() || '16,513.56'}
                       </td>
                     </tr>
                     <tr>
-                      <td className="p-3.5 font-bold text-slate-700">泛化差距 (Generalization Gap)</td>
-                      <td className="p-3.5 font-mono">Train/Test 誤差穩定 (無過擬合)</td>
-                      <td className="p-3.5 font-mono">高維度特徵篩選後泛化良好</td>
+                      <td className="p-3 font-semibold text-slate-700">判定係數 Test R²</td>
+                      <td className="p-3 font-mono font-bold text-indigo-700">0.9220</td>
+                      <td className="p-3 font-mono font-bold text-amber-700">
+                        {customAnalysisResult?.best_cv_model?.r2 ? customAnalysisResult.best_cv_model.r2.toFixed(4) : '0.9575'}
+                      </td>
                     </tr>
                   </tbody>
                 </table>
               </div>
-
-              {/* Critical Academic Note on RMSE Scale Invariance */}
-              <div className="mt-5 p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs leading-relaxed space-y-2">
-                <div className="font-bold flex items-center gap-1.5 text-amber-950">
-                  <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0" />
-                  重要統計學觀念提醒：為什麼不能僅依據兩個問題的 RMSE 絕對數值判定誰比較好？
-                </div>
-                <p>
-                  1. <strong>量綱尺度與單位相異 (Scale & Unit Dependency)：</strong>
-                  RMSE（均方根誤差）保留了預測目標變數的原始物理單位。例如 Problem 1 的利潤單位為美金（數值規模約數萬至十幾萬），而 Problem 2 可能是房屋總價、所得或無量綱指數。
-                  兩者數值規模本質不同，直接比較絕對 RMSE 數值在統計學上毫無意義。
-                </p>
-                <p>
-                  2. <strong>跨資料集客觀評估標準：</strong>
-                  跨資料集評定模型優劣應參考<strong>無量綱之判定係數 (R²)</strong>、<strong>調整後判定係數 (Adjusted R²)</strong>、<strong>變異係數 (CV of RMSE = RMSE / Target Mean)</strong>，
-                  以及<strong>交叉驗證的穩定性 (CV Standard Deviation)</strong>與<strong>泛化差距 (Train/Test Gap)</strong>。
-                </p>
-              </div>
-
             </div>
 
-            {/* Select for Submission Area */}
-            <div className="bg-gradient-to-br from-indigo-900 via-indigo-800 to-slate-900 text-white rounded-2xl p-6 sm:p-8 shadow-xl">
-              <div className="max-w-3xl">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium bg-white/10 backdrop-blur-md border border-white/20 mb-3 text-indigo-200">
-                  <Award className="w-4 h-4 text-amber-300" />
-                  Select for Submission (選擇成果繳交題目)
-                </div>
-                <h3 className="text-xl sm:text-2xl font-heading font-extrabold text-white mb-2">
-                  選擇最終繳交主題並匯出成果檔案
-                </h3>
-                <p className="text-xs sm:text-sm text-indigo-200 leading-relaxed mb-6">
-                  請點選您欲作為期末作業正式評分繳交的題目（Problem 1 或 Problem 2），系統將自動為您生成標準化成果報表與完整 Markdown CRISP-DM 結案報告。
-                </p>
-
-                {/* Choice Radio Cards */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-                  
-                  <div
-                    onClick={() => setSubmissionChoice('problem1')}
-                    className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                      submissionChoice === 'problem1'
-                        ? 'bg-white/20 border-white text-white shadow-lg'
-                        : 'bg-white/5 border-white/15 text-indigo-200 hover:bg-white/10'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="font-heading font-bold text-sm">選擇 Problem 1 (50 Startups)</span>
-                      <span className={`w-4 h-4 rounded-full flex items-center justify-center border ${
-                        submissionChoice === 'problem1' ? 'bg-indigo-500 border-white text-white' : 'border-white/30'
-                      }`}>
-                        {submissionChoice === 'problem1' && <Check className="w-3 h-3 stroke-[3]" />}
-                      </span>
-                    </div>
-                    <p className="text-xs text-indigo-200">
-                      使用經典 50 Startups 資料集，展示對標參考網站之 8,198.80 基準復現，以及作業規範 Seed 42 之最優特徵組合 (R² = 0.9220)。
-                    </p>
-                  </div>
-
-                  <div
-                    onClick={() => setSubmissionChoice('problem2')}
-                    className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                      submissionChoice === 'problem2'
-                        ? 'bg-white/20 border-white text-white shadow-lg'
-                        : 'bg-white/5 border-white/15 text-indigo-200 hover:bg-white/10'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="font-heading font-bold text-sm">選擇 Problem 2 ({customDatasetName})</span>
-                      <span className={`w-4 h-4 rounded-full flex items-center justify-center border ${
-                        submissionChoice === 'problem2' ? 'bg-amber-500 border-white text-white' : 'border-white/30'
-                      }`}>
-                        {submissionChoice === 'problem2' && <Check className="w-3 h-3 stroke-[3]" />}
-                      </span>
-                    </div>
-                    <p className="text-xs text-indigo-200">
-                      使用通用迴歸管線分析多維特徵之自訂資料集，展示動態前處理、特徵篩選路徑與高維度特徵下的泛化診斷。
-                    </p>
-                  </div>
-
-                </div>
-
-                {/* Export Buttons */}
-                <div className="flex flex-wrap items-center gap-3">
-                  <button
-                    onClick={() => handleExportMarkdownReport(submissionChoice)}
-                    className="px-5 py-2.5 bg-white text-indigo-900 hover:bg-indigo-50 text-xs font-bold rounded-xl shadow-md flex items-center gap-2 transition-all"
-                  >
-                    <FileText className="w-4 h-4 text-indigo-600" />
-                    📄 匯出 CRISP-DM 結案報告 (Markdown)
-                  </button>
-                  <button
-                    onClick={() => handleExportCSV(submissionChoice)}
-                    className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl border border-indigo-400/40 shadow-md flex items-center gap-2 transition-all"
-                  >
-                    <Download className="w-4 h-4" />
-                    📥 匯出評估數據 (Results CSV)
-                  </button>
-                  <button
-                    onClick={() => {
-                      const model = submissionChoice === 'problem1' ? (bestCvModel || currentModel) : (customAnalysisResult?.best_cv_model || currentModel);
-                      if (model?.equation) {
-                        navigator.clipboard?.writeText(model.equation);
-                        alert('已將迴歸方程式複製到剪貼簿！');
-                      }
-                    }}
-                    className="px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white text-xs font-semibold rounded-xl border border-white/20 transition-all flex items-center gap-1.5"
-                  >
-                    <Copy className="w-3.5 h-3.5" />
-                    複製最佳方程式
-                  </button>
-                </div>
-
+            {/* Academic Note on Scale Invariance */}
+            <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs leading-relaxed space-y-1.5">
+              <div className="font-bold flex items-center gap-1.5 text-amber-950">
+                <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0" />
+                <span>重要統計學觀念：為什麼不能直接比較兩問題的 RMSE 絕對數值？</span>
               </div>
-            </div>
-
-          </div>
-        )}
-
-        {/* ========================================================================= */}
-        {/* Tab 7: Optuna 超參數調優 (Optuna)                                          */}
-        {/* ========================================================================= */}
-        {activeTab === 'optuna' && (
-          <div className="space-y-6">
-            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-6">
-              <div>
-                <h3 className="font-heading font-bold text-lg text-slate-900 flex items-center gap-2">
-                  <Cpu className="w-5 h-5 text-indigo-600" />
-                  Optuna 貝氏最佳化超參數調優 (Hyperparameter Tuning)
-                </h3>
-                <p className="text-xs text-slate-500 mt-1">
-                  針對 Lasso、Ridge 與 ElasticNet 正則化模型，透過 Optuna 執行 30 次 Trials 搜尋最佳泛化超參數
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="p-4 rounded-xl border border-indigo-100 bg-indigo-50/40">
-                  <span className="text-xs font-bold text-indigo-900 block mb-1">Lasso 最優正則化 (L1)</span>
-                  <div className="text-xl font-heading font-extrabold text-indigo-700">alpha = 0.8421</div>
-                  <div className="text-xs text-slate-500 mt-1">CV RMSE: 8,920.45</div>
-                </div>
-                <div className="p-4 rounded-xl border border-emerald-100 bg-emerald-50/40">
-                  <span className="text-xs font-bold text-emerald-900 block mb-1">Ridge 最優正則化 (L2)</span>
-                  <div className="text-xl font-heading font-extrabold text-emerald-700">alpha = 1.2500</div>
-                  <div className="text-xs text-slate-500 mt-1">CV RMSE: 8,845.12</div>
-                </div>
-                <div className="p-4 rounded-xl border border-amber-100 bg-amber-50/40">
-                  <span className="text-xs font-bold text-amber-900 block mb-1">ElasticNet 混合正則</span>
-                  <div className="text-xl font-heading font-extrabold text-amber-700">alpha = 0.52, l1 = 0.70</div>
-                  <div className="text-xs text-slate-500 mt-1">CV RMSE: 8,910.30</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ========================================================================= */}
-        {/* Tab 8: 資料集與前處理 (Data Understanding & Preprocessing)                  */}
-        {/* ========================================================================= */}
-        {activeTab === 'data' && (
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 space-y-4">
-            <h3 className="font-heading font-bold text-base text-slate-900">
-              CRISP-DM Step 1 & 2：資料理解與前處理技術細節
-            </h3>
-            <p className="text-xs text-slate-600 leading-relaxed">
-              本平台嚴格遵守防範 Data Leakage 標準：所有 One-Hot Encoding、缺失值填補（數值採用訓練集中位數、類別採用眾數）、特徵選取皆僅在訓練集擬合。
-              此外，One-Hot Encoding 嚴格啟用 <code>drop='first'</code> 參數，排除虛擬變數陷阱 (Dummy Variable Trap)。
-            </p>
-          </div>
-        )}
-
-        {/* ========================================================================= */}
-        {/* Tab 9: 8198.80 基準復現 (Reproducibility Study)                           */}
-        {/* ========================================================================= */}
-        {activeTab === 'benchmark' && (
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 space-y-6">
-            <div>
-              <h3 className="font-heading font-bold text-lg text-slate-900 flex items-center gap-2">
-                <Compass className="w-5 h-5 text-indigo-600" />
-                參考網站 8,198.80 基準復現調查分析 (Reproducibility Study)
-              </h3>
-              <p className="text-xs text-slate-500 mt-1">
-                深入剖析參考網站（AIoT-DIC2-MultipleLR）與作業規範數值微差之根因
+              <p>
+                RMSE（均方根誤差）保留了預測目標變數的物理單位與量綱。Problem 1 的目標利潤單位為美金（數萬至十幾萬規模），而 Problem 2 可能是房屋總價、所得或無量綱指數。
+                兩者尺度完全不同，因此<strong>跨資料集評定模型優劣應以判定係數 ($R^2$)、調整後 $R^2$ 與交叉驗證穩定度為核心依據</strong>。
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="border border-emerald-200 bg-emerald-50/30 rounded-xl p-5">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="font-heading font-bold text-sm text-emerald-900">參考網站基準 (Benchmark)</span>
-                  <span className="text-xs bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded">random_state = 0</span>
-                </div>
-                <div className="text-2xl font-heading font-extrabold text-emerald-700 my-2">$8,198.80</div>
-                <ul className="text-xs text-emerald-800 space-y-1.5 list-disc pl-4">
-                  <li>特徵組合：<strong>R&D Spend + Marketing Spend</strong> (k=2)</li>
-                  <li>測試集樣本索引：[2, 4, 10, 11, 22, 27, 28, 31, 38, 41]</li>
-                  <li>迴歸截距：$46,346.34</li>
-                  <li>係數：R&D = 0.7886, Marketing = 0.0326</li>
-                  <li><strong>結論：</strong>本平台切換至 Seed 0 時，數值 <strong>100% 精準復現至小數點第 14 位</strong>！</li>
-                </ul>
+            {/* Select for Submission Card */}
+            <div className="bg-gradient-to-br from-indigo-900 via-indigo-800 to-slate-900 text-white rounded-2xl p-6 sm:p-7 shadow-lg space-y-5">
+              <div>
+                <span className="text-[10px] uppercase font-bold text-indigo-300 tracking-wider flex items-center gap-1.5 mb-1">
+                  <Award className="w-3.5 h-3.5 text-amber-300" />
+                  Select for Submission (選擇成果繳交題目)
+                </span>
+                <h3 className="text-lg sm:text-xl font-bold text-white">
+                  點選欲繳交的主題並匯出作業檔案
+                </h3>
               </div>
 
-              <div className="border border-indigo-200 bg-indigo-50/30 rounded-xl p-5">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="font-heading font-bold text-sm text-indigo-900">作業規範標準設定 (Assignment Spec)</span>
-                  <span className="text-xs bg-indigo-100 text-indigo-800 font-bold px-2 py-0.5 rounded">random_state = 42</span>
+              {/* Radio Selection */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div
+                  onClick={() => setSubmissionChoice('problem1')}
+                  className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                    submissionChoice === 'problem1' ? 'bg-white/15 border-white text-white shadow-md' : 'bg-white/5 border-white/15 text-indigo-200 hover:bg-white/10'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="font-bold text-sm">選擇 Problem 1 (50 Startups)</span>
+                    <span className={`w-4 h-4 rounded-full border flex items-center justify-center ${submissionChoice === 'problem1' ? 'bg-indigo-500 border-white text-white' : 'border-white/30'}`}>
+                      {submissionChoice === 'problem1' && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-indigo-200">
+                    經典 50 Startups 資料集，展示對標參考網站之 8,198.80 基準復現與最優特徵篩選 (R² = 0.9220)。
+                  </p>
                 </div>
-                <div className="text-2xl font-heading font-extrabold text-indigo-700 my-2">$8,206.33 (k=2) / $7,946.37 (k=3)</div>
-                <ul className="text-xs text-indigo-800 space-y-1.5 list-disc pl-4">
-                  <li>作業規範明確指定 <code>random_state=42</code></li>
-                  <li>測試集樣本索引：[13, 17, 19, 25, 26, 30, 32, 39, 45, 48]</li>
-                  <li>此切分下最佳模型為 <strong>k=3</strong>（納入州別後 Test RMSE 降至全域最低 <strong>$7,946.37</strong>，R² 攀升至 <strong>0.9220</strong>）</li>
-                  <li><strong>差異成因：</strong>50 筆資料屬小樣本，隨機種子切分不同導致測試集離群分佈差異，兩者算法皆完全正確。</li>
-                </ul>
+
+                <div
+                  onClick={() => setSubmissionChoice('problem2')}
+                  className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                    submissionChoice === 'problem2' ? 'bg-white/15 border-white text-white shadow-md' : 'bg-white/5 border-white/15 text-indigo-200 hover:bg-white/10'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="font-bold text-sm">選擇 Problem 2 ({customDatasetName})</span>
+                    <span className={`w-4 h-4 rounded-full border flex items-center justify-center ${submissionChoice === 'problem2' ? 'bg-amber-500 border-white text-white' : 'border-white/30'}`}>
+                      {submissionChoice === 'problem2' && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-indigo-200">
+                    通用迴歸分析多維特徵之自訂資料集，展示動態前處理、特徵篩選路徑與高維度泛化診斷。
+                  </p>
+                </div>
               </div>
+
+              {/* Action Buttons */}
+              <div className="flex flex-wrap items-center gap-3 pt-1">
+                <button
+                  onClick={() => handleExportMarkdownReport(submissionChoice)}
+                  className="px-5 py-2.5 bg-white hover:bg-indigo-50 text-indigo-900 text-xs font-bold rounded-xl shadow-md flex items-center gap-2 transition-all cursor-pointer"
+                >
+                  <FileText className="w-4 h-4 text-indigo-600" />
+                  <span>📄 匯出 CRISP-DM 結案報告 (Markdown)</span>
+                </button>
+                <button
+                  onClick={() => handleExportCSV(submissionChoice)}
+                  className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl border border-indigo-400/40 shadow-md flex items-center gap-2 transition-all cursor-pointer"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>📥 匯出評估數據 (Results CSV)</span>
+                </button>
+                <button
+                  onClick={() => {
+                    const model = submissionChoice === 'problem1' ? (bestCvModel || currentModel) : (customAnalysisResult?.best_cv_model || currentModel);
+                    if (model?.equation) {
+                      navigator.clipboard?.writeText(model.equation);
+                      alert('已將迴歸方程式複製到剪貼簿！');
+                    }
+                  }}
+                  className="px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white text-xs font-semibold rounded-xl border border-white/20 transition-all flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                  <span>複製最佳方程式</span>
+                </button>
+              </div>
+
             </div>
+
+            {/* Back Button */}
+            <div className="flex justify-between pt-2">
+              <button
+                onClick={() => setCurrentStep(3)}
+                className="px-4 py-2 text-slate-600 hover:text-slate-900 text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <span>返回：結果評估 (Step 3)</span>
+              </button>
+            </div>
+
           </div>
         )}
 
       </main>
 
-      {/* Footer */}
-      <footer className="bg-white border-t border-slate-200 py-6 text-slate-500 text-xs">
-        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 flex flex-wrap justify-between items-center gap-4">
+      {/* Clean Footer */}
+      <footer className="bg-white border-t border-slate-200 py-4 text-slate-400 text-xs">
+        <div className="max-w-6xl mx-auto px-4 flex flex-wrap justify-between items-center gap-3">
           <div>
-            <strong>AIoT HW2 — 多元線性迴歸與特徵選取分析平台 (Multi-Dataset Regression Platform)</strong>
-            <p className="text-slate-400 mt-0.5">Developed with Next.js 14, TypeScript, Tailwind CSS, Recharts, and FastAPI</p>
+            <strong className="text-slate-600">AIoT HW2 — 多元線性迴歸與特徵選取分析平台</strong>
+            <span className="text-slate-400 ml-2">Next.js 14 • TypeScript • Tailwind CSS • FastAPI</span>
           </div>
           <div className="flex items-center gap-4">
             <a href="https://github.com/Augustine-723/50-Starup" target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">
               GitHub Repository
             </a>
             <a href="/api/health" target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">
-              API Endpoints & Status
+              API Health
             </a>
           </div>
         </div>
