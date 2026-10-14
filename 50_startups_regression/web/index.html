@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>50 Startups 多元線性迴歸與特徵選取平台 | Multiple Linear Regression & RFE</title>
+  <meta name="description" content="50 Startups 資料集多元線性迴歸與遞迴特徵消除 (RFE) 互動分析儀表板，提供特徵選取評估、RMSE 與 R-squared 視覺化、即時獲利預測器及過擬合診斷。">
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+  
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- App Header -->
+  <header class="app-header" id="app-header">
+    <div class="header-container">
+      <div class="brand-wrapper">
+        <div class="brand-icon" id="brand-logo">50</div>
+        <div class="brand-text">
+          <h1 id="brand-title">50 Startups 多元線性迴歸與特徵選取分析</h1>
+          <p id="brand-subtitle">Multiple Linear Regression & Recursive Feature Elimination (RFE)</p>
+        </div>
+      </div>
+      <div class="header-badges">
+        <span class="badge badge-success" id="badge-best-r2">🏆 最佳 R²: 0.9220 (k=3)</span>
+        <span class="badge badge-primary" id="badge-best-rmse">📉 最低測試 RMSE: $7,946</span>
+        <span class="badge" id="badge-leakage">🛡️ Data Leakage 防護: 啟用</span>
+        <span class="badge" id="badge-split">📐 80/20 切分 (N=50)</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Navigation Tabs -->
+  <nav class="nav-tabs" id="main-nav-tabs" aria-label="Main Navigation">
+    <button class="tab-btn active" id="tab-btn-evaluation" data-tab="tab-evaluation">
+      <span>📊</span> 模型評估與圖表
+    </button>
+    <button class="tab-btn" id="tab-btn-rfe" data-tab="tab-rfe">
+      <span>🔍</span> 特徵選取探討 (RFE)
+    </button>
+    <button class="tab-btn" id="tab-btn-predictor" data-tab="tab-predictor">
+      <span>🧮</span> 即時獲利預測器
+    </button>
+    <button class="tab-btn" id="tab-btn-diagnostics" data-tab="tab-diagnostics">
+      <span>📈</span> 過擬合與欠擬合診斷
+    </button>
+    <button class="tab-btn" id="tab-btn-dataset" data-tab="tab-dataset">
+      <span>📋</span> 50 Startups 資料集
+    </button>
+  </nav>
+
+  <!-- Main Container -->
+  <main class="main-container">
+
+    <!-- KPI Summary Grid -->
+    <section class="kpi-grid" id="kpi-summary-grid">
+      <div class="kpi-card" id="kpi-optimal-model">
+        <div class="kpi-label">最佳特徵數量</div>
+        <div class="kpi-value" id="kpi-val-k">3 Features</div>
+        <div class="kpi-sub">R&D Spend + State 虛擬變數</div>
+      </div>
+      <div class="kpi-card kpi-success" id="kpi-optimal-r2">
+        <div class="kpi-label">最佳測試集 R-squared</div>
+        <div class="kpi-value" id="kpi-val-r2">0.9220</div>
+        <div class="kpi-sub">可解釋 92.2% 獲利變異</div>
+      </div>
+      <div class="kpi-card" id="kpi-optimal-rmse">
+        <div class="kpi-label">最佳測試集 RMSE</div>
+        <div class="kpi-value" id="kpi-val-rmse">$7,946.37</div>
+        <div class="kpi-sub">相較 k=1, 2 誤差降低 78%</div>
+      </div>
+      <div class="kpi-card kpi-purple" id="kpi-core-feature">
+        <div class="kpi-label">主導核心特徵</div>
+        <div class="kpi-value" id="kpi-val-core">R&D Spend</div>
+        <div class="kpi-sub">迴歸係數約 0.85 (強正相關)</div>
+      </div>
+    </section>
+
+    <!-- Tab 1: 模型評估與視覺化 (左右並排要求) -->
+    <section class="tab-content active" id="tab-evaluation">
+      
+      <!-- Side by Side Charts -->
+      <div class="charts-dual-grid" id="charts-dual-container">
+        
+        <!-- Left: RMSE by Number of Features -->
+        <div class="card" id="card-rmse-chart">
+          <div class="card-header">
+            <h2 class="card-title" id="title-rmse-chart">
+              <span>📉</span> RMSE by Number of Features
+            </h2>
+            <span class="badge badge-primary">藍色折線與圓形標記</span>
+          </div>
+          <p class="card-desc">衡量測試集預測誤差幅度（單位：美元）。數值越低表示預測越精確。</p>
+          <div class="chart-wrapper">
+            <canvas id="chart-rmse" aria-label="RMSE by Number of Features Chart"></canvas>
+          </div>
+        </div>
+
+        <!-- Right: R-squared by Number of Features -->
+        <div class="card" id="card-r2-chart">
+          <div class="card-header">
+            <h2 class="card-title" id="title-r2-chart">
+              <span>📈</span> R-squared by Number of Features
+            </h2>
+            <span class="badge badge-primary">藍色折線與圓形標記</span>
+          </div>
+          <p class="card-desc">衡量模型對目標變數獲利（Profit）的解釋比例。數值越接近 1.0 越佳。</p>
+          <div class="chart-wrapper">
+            <canvas id="chart-r2" aria-label="R-squared by Number of Features Chart"></canvas>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Feature Selection Evaluation DataFrame Table -->
+      <div class="card" id="card-results-table">
+        <div class="card-header">
+          <h2 class="card-title" id="title-results-table">
+            <span>📋</span> Feature Selection 評估結果表 (Model Evaluation Results)
+          </h2>
+          <span class="badge badge-success">實際模型運算數值 (無硬編碼)</span>
+        </div>
+        <p class="card-desc">依序測試 1 到 5 個特徵在測試集 (Test Set, N=10) 上的評估指標比較：</p>
+        
+        <div class="table-responsive">
+          <table class="styled-table" id="results-data-table">
+            <thead>
+              <tr>
+                <th>Number of Features</th>
+                <th>Selected Features</th>
+                <th>Train RMSE</th>
+                <th>RMSE (Test)</th>
+                <th>MSE</th>
+                <th>MAE</th>
+                <th>R-squared</th>
+                <th>模型狀態</th>
+              </tr>
+            </thead>
+            <tbody id="results-table-body">
+              <!-- Dynamically populated via JS from STARTUPS_DATA -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- Tab 2: 特徵選取探討 (RFE) -->
+    <section class="tab-content" id="tab-rfe">
+      <div class="card" id="card-rfe-detail">
+        <div class="card-header">
+          <h2 class="card-title">
+            <span>🔍</span> 遞迴特徵消除 (RFE) 各階段特徵與迴歸方程式
+          </h2>
+        </div>
+        <p class="card-desc">點擊下方按鈕切換檢視特徵數量（1 到 5 個特徵），觀察所選欄位、迴歸係數與方程式變化：</p>
+
+        <!-- Step Selector Buttons -->
+        <div class="step-selector-group" id="rfe-step-selector">
+          <button class="step-btn" data-k="1" id="step-btn-1">1 Feature</button>
+          <button class="step-btn" data-k="2" id="step-btn-2">2 Features</button>
+          <button class="step-btn active" data-k="3" id="step-btn-3">3 Features (最佳 🏆)</button>
+          <button class="step-btn" data-k="4" id="step-btn-4">4 Features</button>
+          <button class="step-btn" data-k="5" id="step-btn-5">5 Features (全特徵)</button>
+        </div>
+
+        <!-- Dynamic Formula Box -->
+        <div class="formula-box" id="rfe-formula-display">
+          <!-- Populated by JS -->
+        </div>
+
+        <!-- Feature Tags & Coefficients -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-top: 1.5rem;" id="rfe-info-grid">
+          <div>
+            <h3 style="font-size: 1rem; color: var(--text-bright); margin-bottom: 0.75rem;">當前選入特徵清單</h3>
+            <div class="feature-tag-list" id="rfe-selected-tags"></div>
+            
+            <div style="margin-top: 1.5rem; background: var(--bg-surface); padding: 1.25rem; border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
+              <h4 style="font-size: 0.9rem; color: var(--text-bright); margin-bottom: 0.5rem;">One-Hot Encoding 與 Dummy Variable Trap 說明</h4>
+              <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.6;">
+                類別欄位 <code>State</code> 包含 <code>California</code>、<code>Florida</code>、<code>New York</code> 3 個州別。<br>
+                為避免虛擬變數陷阱（與常數截距項形成共線性），設定 <code>drop='first'</code> 以 California 為基準組，展開為 <code>State_Florida</code> 與 <code>State_New York</code>。<br>
+                加上 3 個數值特徵，候選特徵總計 5 個。
+              </p>
+            </div>
+          </div>
+          <div>
+            <h3 style="font-size: 1rem; color: var(--text-bright); margin-bottom: 0.75rem;">各特徵迴歸係數 (Feature Coefficients)</h3>
+            <div class="chart-wrapper" style="height: 250px;">
+              <canvas id="chart-coefficients"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Tab 3: 即時獲利預測器 -->
+    <section class="tab-content" id="tab-predictor">
+      <div class="card" id="card-predictor-main">
+        <div class="card-header">
+          <h2 class="card-title">
+            <span>🧮</span> 50 Startups 即時獲利預測器 (Live Profit Predictor)
+          </h2>
+          <span class="badge badge-success">基於真實訓練模型參數即時運算</span>
+        </div>
+        <p class="card-desc">調整各項營運支出與公司設立州別，系統將套用多元線性迴歸模型進行即時獲利預測：</p>
+
+        <div class="predictor-grid">
+          
+          <!-- Controls Column -->
+          <div class="predictor-controls">
+            
+            <!-- Model Choice -->
+            <div class="input-group">
+              <div class="input-label-row">
+                <label class="input-label" for="predict-model-select">選擇預測模型版本：</label>
+              </div>
+              <select id="predict-model-select" class="select-filter" style="width: 100%;">
+                <option value="3" selected>🏆 最佳模型 (3 Features: R&D + State) - R²=0.9220</option>
+                <option value="5">全特徵模型 (5 Features: R&D + Admin + Mktg + State) - R²=0.8987</option>
+                <option value="4">4 Features 模型 (R&D + Admin + State) - R²=0.8928</option>
+                <option value="2">2 Features 模型 (State_Florida + State_NY) - 欠擬合</option>
+                <option value="1">1 Feature 模型 (State_NY) - 欠擬合</option>
+              </select>
+            </div>
+
+            <!-- R&D Spend -->
+            <div class="input-group">
+              <div class="input-label-row">
+                <label class="input-label" for="slider-rd">🔬 研發支出 (R&D Spend)</label>
+                <span class="input-value-badge" id="val-display-rd">$100,000</span>
+              </div>
+              <input type="range" id="slider-rd" class="slider-control" min="0" max="200000" step="1000" value="100000">
+              <input type="number" id="input-rd" class="number-input-field" min="0" max="500000" value="100000">
+            </div>
+
+            <!-- Administration -->
+            <div class="input-group">
+              <div class="input-label-row">
+                <label class="input-label" for="slider-admin">🏢 行政管理支出 (Administration)</label>
+                <span class="input-value-badge" id="val-display-admin">$120,000</span>
+              </div>
+              <input type="range" id="slider-admin" class="slider-control" min="0" max="200000" step="1000" value="120000">
+              <input type="number" id="input-admin" class="number-input-field" min="0" max="500000" value="120000">
+            </div>
+
+            <!-- Marketing Spend -->
+            <div class="input-group">
+              <div class="input-label-row">
+                <label class="input-label" for="slider-mktg">📢 行銷推廣支出 (Marketing Spend)</label>
+                <span class="input-value-badge" id="val-display-mktg">$250,000</span>
+              </div>
+              <input type="range" id="slider-mktg" class="slider-control" min="0" max="500000" step="2500" value="250000">
+              <input type="number" id="input-mktg" class="number-input-field" min="0" max="1000000" value="250000">
+            </div>
+
+            <!-- State Selector -->
+            <div class="input-group">
+              <div class="input-label-row">
+                <label class="input-label">📍 公司設立州別 (State)</label>
+              </div>
+              <div class="radio-pill-group" id="state-pill-group">
+                <div class="radio-pill" data-state="California" id="pill-california">California (基準組)</div>
+                <div class="radio-pill active" data-state="New York" id="pill-newyork">New York</div>
+                <div class="radio-pill" data-state="Florida" id="pill-florida">Florida</div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Result Column -->
+          <div class="prediction-result-card" id="card-prediction-result">
+            <div class="prediction-title">預測公司獲利 (Predicted Profit)</div>
+            <div class="prediction-amount" id="predict-result-amount">$134,196</div>
+            <div class="prediction-subtitle" id="predict-result-sub">基於 3 Features 最佳多元線性迴歸模型</div>
+            
+            <div class="contribution-breakdown" id="prediction-breakdown">
+              <div class="breakdown-row">
+                <span>截距基礎獲利 (Base Intercept)</span>
+                <span class="breakdown-val" id="bd-intercept">+$48,518.80</span>
+              </div>
+              <div class="breakdown-row">
+                <span>研發支出貢獻 (R&D Contribution)</span>
+                <span class="breakdown-val" id="bd-rd">+$85,122.03</span>
+              </div>
+              <div class="breakdown-row">
+                <span>州別效應 (State Dummy Effect)</span>
+                <span class="breakdown-val" id="bd-state">+$555.25</span>
+              </div>
+              <div class="breakdown-row" style="border-top: 1px solid rgba(255,255,255,0.08); padding-top: 0.5rem; margin-top: 0.5rem;">
+                <span style="font-weight: 600; color: var(--text-bright);">合計預估獲利</span>
+                <span class="breakdown-val" style="color: var(--accent-cyan); font-size: 1rem;" id="bd-total">$134,196.08</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- Tab 4: 過擬合與欠擬合深度診斷 -->
+    <section class="tab-content" id="tab-diagnostics">
+      <div class="card" id="card-train-test-plot">
+        <div class="card-header">
+          <h2 class="card-title">
+            <span>📈</span> Training vs Testing RMSE by Number of Features
+          </h2>
+          <span class="badge badge-primary">訓練集與測試集誤差比較折線圖</span>
+        </div>
+        <p class="card-desc">透過觀察 Training RMSE（藍色實線）與 Testing RMSE（橘色虛線）之收斂與發散現象，判定模型適配度狀態：</p>
+        
+        <div class="chart-wrapper" style="height: 380px;">
+          <canvas id="chart-train-test" aria-label="Training vs Testing RMSE Comparison Chart"></canvas>
+        </div>
+
+        <!-- 3 Diagnostic Explanation Cards -->
+        <div class="diagnostic-grid">
+          
+          <!-- Underfitting Card -->
+          <div class="diag-card diag-underfitting" id="card-diag-underfit">
+            <div class="diag-header">
+              <span class="diag-badge diag-badge-danger">Underfitting</span>
+              <h3 class="diag-title">嚴重欠擬合 (k = 1, 2)</h3>
+            </div>
+            <div class="diag-body">
+              <p>當模型僅使用 1 或 2 個特徵時，特徵僅由地理位置虛擬變數組成（<code>State_New York</code>, <code>State_Florida</code>），完全缺乏核心研發支出。</p>
+              <p>訓練集與測試集 RMSE 高達 <strong>35,000 ~ 41,000</strong> 美元，且測試集 R² 為負值（<strong>-0.56 ~ -0.59</strong>），模型嚴重缺乏表達能力（High Bias）。</p>
+            </div>
+            <div class="diag-meta">特徵：State_New York / State_Florida</div>
+          </div>
+
+          <!-- Optimal Card -->
+          <div class="diag-card diag-optimal" id="card-diag-optimal">
+            <div class="diag-header">
+              <span class="diag-badge diag-badge-success">Optimal</span>
+              <h3 class="diag-title">最佳平衡點 (k = 3) 🏆</h3>
+            </div>
+            <div class="diag-body">
+              <p>特徵增加至 3 個時納入核心變數 <strong>R&D Spend</strong>，測試集 RMSE 驟降至 <strong>$7,946.37</strong>（全實驗最低），測試集 R² 躍升至 <strong>0.9220</strong>（全實驗最高）。</p>
+              <p>模型在保持精簡特徵數的同時，完美捕捉利潤的主導因子，泛化能力達到頂峰。</p>
+            </div>
+            <div class="diag-meta">特徵：R&D Spend + State_Florida + State_NY</div>
+          </div>
+
+          <!-- Overfitting Card -->
+          <div class="diag-card diag-overfitting" id="card-diag-overfit">
+            <div class="diag-header">
+              <span class="diag-badge diag-badge-warning">Overfitting</span>
+              <h3 class="diag-title">微幅過擬合 (k = 4, 5)</h3>
+            </div>
+            <div class="diag-body">
+              <p>陸續納入 <code>Administration</code> 與 <code>Marketing Spend</code> 後，訓練集 RMSE 持續遞減（9,517 &rarr; 9,162 &rarr; 8,927），但<strong>測試集 RMSE 反彈至 9,055 ~ 9,316</strong>。</p>
+              <p>訓練誤差持續降低但泛化測試誤差回升，代表額外變數引入了共線性雜訊，符合標準過擬合特性。</p>
+            </div>
+            <div class="diag-meta">特徵：+ Administration + Marketing Spend</div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- Tab 5: 資料集瀏覽器 -->
+    <section class="tab-content" id="tab-dataset">
+      <div class="card" id="card-dataset-table">
+        <div class="card-header">
+          <h2 class="card-title">
+            <span>📋</span> 50 Startups 原始資料集檢視 (Dataset Explorer)
+          </h2>
+          <span class="badge" id="badge-record-count">共 50 筆完整資料</span>
+        </div>
+        <p class="card-desc">瀏覽 50 家創業公司之研發、行政、行銷支出、設立州別與最終獲利數據：</p>
+
+        <!-- Filter Bar -->
+        <div class="filter-bar">
+          <input type="text" class="search-input" id="table-search-input" placeholder="🔍 搜尋州別、支出或獲利金額...">
+          <select class="select-filter" id="table-state-filter">
+            <option value="ALL">全部州別 (All States)</option>
+            <option value="California">California (17 筆)</option>
+            <option value="Florida">Florida (16 筆)</option>
+            <option value="New York">New York (17 筆)</option>
+          </select>
+        </div>
+
+        <div class="table-responsive" style="max-height: 520px;">
+          <table class="styled-table" id="raw-startups-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>R&D Spend</th>
+                <th>Administration</th>
+                <th>Marketing Spend</th>
+                <th>State</th>
+                <th>Profit (Target)</th>
+              </tr>
+            </thead>
+            <tbody id="raw-table-body">
+              <!-- Populated by JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- App Footer -->
+  <footer class="app-footer">
+    <div class="footer-content">
+      <div>
+        <strong>50 Startups 多元線性迴歸與特徵選取 (RFE) 分析專案</strong><br>
+        <span style="font-size: 0.78rem;">Powered by scikit-learn & pandas • Strict Anti-Data Leakage Preprocessing</span>
+      </div>
+      <div class="footer-links">
+        <a href="https://github.com/Augustine-723/50-Starup" target="_blank" rel="noopener">GitHub Repository</a>
+        <a href="../outputs/feature_selection_results.csv" download>下載 CSV 結果</a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- App Logic Scripts -->
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
