@@ -1,6 +1,15 @@
 {
   "name": "50-startups-regression-explorer",
   "version": "1.0.0",
+  "description": "AIoT HW2 — Interactive Multiple Linear Regression Dashboard",
+  "homepage": "https://50-starup-i9za.vercel.app/",
+  "keywords": [
+    "machine-learning",
+    "linear-regression",
+    "aiot",
+    "nextjs",
+    "python"
+  ],
   "private": true,
   "scripts": {
     "dev": "next dev",
