@@ -10,6 +10,11 @@
 
 > 本專案為 **AIoT HW2** 實作之現代化全端機器學習探索與評估系統（Full-Stack Machine Learning Explorer）。參考 [AIoT-DIC2-MultipleLR 儀表板](https://huanchen1107.github.io/AIoT-DIC2-MultipleLR/) 的資訊架構與視覺理念，以 **CRISP-DM** 規範為基礎，結合 **Next.js 14 App Router**、**FastAPI**、**scikit-learn**、**statsmodels** 與 **Optuna 貝氏最佳化**，建立具備生產級前置處理、特徵選取演算法比較、即時獲利預測與殘差診斷的完整分析系統。
 
+### 🌐 線上即時展示 (Live Demo Website)
+👉 **[https://50-starup-i9za.vercel.app/](https://50-starup-i9za.vercel.app/)**
+
+![50 Startups Multiple Linear Regression Explorer Snapshot](assets/dashboard_snapshot.png)
+
 ---
 
 ## 目錄 (Table of Contents)
@@ -49,6 +54,8 @@
 │   ├── tailwind.config.js               # Tailwind CSS 設定
 │   └── tsconfig.json                    # TypeScript 編譯配置
 ├── 50_startups_regression/              # 第一階段 CLI 與靜態網頁實作
+├── assets/                              # 專案靜態圖像與儀表板快照
+│   └── dashboard_snapshot.png           # 儀表板實體快照圖
 ├── .gitignore                           # Git 忽略清單 (排除 node_modules, .next, venv)
 └── README.md                            # 專案完整技術說明文件
 ```
