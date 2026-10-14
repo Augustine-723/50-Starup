@@ -1,0 +1,157 @@
+{
+  "status": "success",
+  "optuna": {
+    "best_params": {
+      "model_type": "Lasso",
+      "alpha": 828.2207398434731
+    },
+    "best_cv_rmse": 9198.43,
+    "test_rmse": 8346.85,
+    "test_r2": 0.914,
+    "test_mae": 6632.37,
+    "trials_count": 30,
+    "trials_history": [
+      {
+        "trial_number": 29,
+        "model_type": "Lasso",
+        "alpha": 828.22074,
+        "l1_ratio": 1.0,
+        "cv_rmse": 9198.43
+      },
+      {
+        "trial_number": 20,
+        "model_type": "Lasso",
+        "alpha": 815.883004,
+        "l1_ratio": 1.0,
+        "cv_rmse": 9198.49
+      },
+      {
+        "trial_number": 18,
+        "model_type": "Lasso",
+        "alpha": 921.679214,
+        "l1_ratio": 1.0,
+        "cv_rmse": 9199.35
+      },
+      {
+        "trial_number": 22,
+        "model_type": "Lasso",
+        "alpha": 717.23742,
+        "l1_ratio": 1.0,
+        "cv_rmse": 9200.41
+      },
+      {
+        "trial_number": 21,
+        "model_type": "Lasso",
+        "alpha": 1577.64974,
+        "l1_ratio": 1.0,
+        "cv_rmse": 9236.95
+      },
+      {
+        "trial_number": 3,
+        "model_type": "Lasso",
+        "alpha": 2080.186346,
+        "l1_ratio": 1.0,
+        "cv_rmse": 9279.79
+      },
+      {
+        "trial_number": 28,
+        "model_type": "Lasso",
+        "alpha": 276.889369,
+        "l1_ratio": 1.0,
+        "cv_rmse": 9291.4
+      },
+      {
+        "trial_number": 15,
+        "model_type": "Lasso",
+        "alpha": 247.986827,
+        "l1_ratio": 1.0,
+        "cv_rmse": 9307.56
+      },
+      {
+        "trial_number": 17,
+        "model_type": "Lasso",
+        "alpha": 212.798147,
+        "l1_ratio": 1.0,
+        "cv_rmse": 9328.37
+      },
+      {
+        "trial_number": 23,
+        "model_type": "Lasso",
+        "alpha": 29.17448,
+        "l1_ratio": 1.0,
+        "cv_rmse": 9516.63
+      },
+      {
+        "trial_number": 14,
+        "model_type": "Lasso",
+        "alpha": 18.585616,
+        "l1_ratio": 1.0,
+        "cv_rmse": 9528.72
+      },
+      {
+        "trial_number": 13,
+        "model_type": "Lasso",
+        "alpha": 4.147611,
+        "l1_ratio": 1.0,
+        "cv_rmse": 9545.6
+      },
+      {
+        "trial_number": 11,
+        "model_type": "Lasso",
+        "alpha": 0.234477,
+        "l1_ratio": 1.0,
+        "cv_rmse": 9550.37
+      },
+      {
+        "trial_number": 12,
+        "model_type": "Lasso",
+        "alpha": 0.036949,
+        "l1_ratio": 1.0,
+        "cv_rmse": 9550.63
+      },
+      {
+        "trial_number": 25,
+        "model_type": "Ridge",
+        "alpha": 0.00014,
+        "l1_ratio": null,
+        "cv_rmse": 9550.68
+      },
+      {
+        "trial_number": 0,
+        "model_type": "ElasticNet",
+        "alpha": 0.00143,
+        "l1_ratio": 0.8701,
+        "cv_rmse": 9550.76
+      },
+      {
+        "trial_number": 26,
+        "model_type": "Ridge",
+        "alpha": 0.006423,
+        "l1_ratio": null,
+        "cv_rmse": 9550.77
+      },
+      {
+        "trial_number": 4,
+        "model_type": "ElasticNet",
+        "alpha": 0.000377,
+        "l1_ratio": 0.1298,
+        "cv_rmse": 9550.84
+      },
+      {
+        "trial_number": 1,
+        "model_type": "ElasticNet",
+        "alpha": 0.000808,
+        "l1_ratio": 0.1473,
+        "cv_rmse": 9551.1
+      },
+      {
+        "trial_number": 7,
+        "model_type": "ElasticNet",
+        "alpha": 0.035296,
+        "l1_ratio": 0.7208,
+        "cv_rmse": 9579.36
+      }
+    ],
+    "saved_model_path": "C:\\Users\\9336d\\.gemini\\antigravity-ide\\scratch\\50-Starup\\backend\\models\\optuna_best_model.pkl.gz"
+  }
+}

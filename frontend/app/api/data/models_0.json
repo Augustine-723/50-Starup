@@ -1,0 +1,393 @@
+{
+  "status": "success",
+  "random_state": 0,
+  "algorithms": [
+    "Forward SFS",
+    "RFE",
+    "Exhaustive Search",
+    "Baseline OLS",
+    "Lasso",
+    "ElasticNet"
+  ],
+  "candidate_features": [
+    "R&D Spend",
+    "Administration",
+    "Marketing Spend",
+    "State_Florida",
+    "State_New York"
+  ],
+  "models_summary": {
+    "Forward SFS": [
+      {
+        "k": 1,
+        "features": [
+          "R&D Spend"
+        ],
+        "test_rmse": 8274.87,
+        "test_r2": 0.9465,
+        "train_test_gap": -1218.71,
+        "equation": "Profit = 48,416.3 + 0.8516 × [R&D Spend]"
+      },
+      {
+        "k": 2,
+        "features": [
+          "R&D Spend",
+          "Marketing Spend"
+        ],
+        "test_rmse": 8198.8,
+        "test_r2": 0.9474,
+        "train_test_gap": -879.82,
+        "equation": "Profit = 46,346.34 + 0.7886 × [R&D Spend] + 0.0326 × [Marketing Spend]"
+      },
+      {
+        "k": 3,
+        "features": [
+          "R&D Spend",
+          "Marketing Spend",
+          "State_Florida"
+        ],
+        "test_rmse": 8376.45,
+        "test_r2": 0.9451,
+        "train_test_gap": -690.72,
+        "equation": "Profit = 46,530.08 + 0.7864 × [R&D Spend] + 0.0338 × [Marketing Spend] - 1079.4682 × [State_Florida]"
+      },
+      {
+        "k": 4,
+        "features": [
+          "R&D Spend",
+          "Administration",
+          "Marketing Spend",
+          "State_Florida"
+        ],
+        "test_rmse": 9068.54,
+        "test_r2": 0.9357,
+        "train_test_gap": 32.03,
+        "equation": "Profit = 42,922.43 + 0.7754 × [R&D Spend] + 0.0319 × [Administration] + 0.0363 × [Marketing Spend] - 1272.1608 × [State_Florida]"
+      },
+      {
+        "k": 5,
+        "features": [
+          "R&D Spend",
+          "Administration",
+          "Marketing Spend",
+          "State_Florida",
+          "State_New York"
+        ],
+        "test_rmse": 9137.99,
+        "test_r2": 0.9347,
+        "train_test_gap": 106.32,
+        "equation": "Profit = 42,554.17 + 0.7735 × [R&D Spend] + 0.0329 × [Administration] + 0.0366 × [Marketing Spend] - 959.2842 × [State_Florida] + 699.3691 × [State_New York]"
+      }
+    ],
+    "RFE": [
+      {
+        "k": 1,
+        "features": [
+          "R&D Spend"
+        ],
+        "test_rmse": 8274.87,
+        "test_r2": 0.9465,
+        "train_test_gap": -1218.71,
+        "equation": "Profit = 48,416.3 + 0.8516 × [R&D Spend]"
+      },
+      {
+        "k": 2,
+        "features": [
+          "R&D Spend",
+          "Marketing Spend"
+        ],
+        "test_rmse": 8198.8,
+        "test_r2": 0.9474,
+        "train_test_gap": -879.82,
+        "equation": "Profit = 46,346.34 + 0.7886 × [R&D Spend] + 0.0326 × [Marketing Spend]"
+      },
+      {
+        "k": 3,
+        "features": [
+          "R&D Spend",
+          "Administration",
+          "Marketing Spend"
+        ],
+        "test_rmse": 8803.78,
+        "test_r2": 0.9394,
+        "train_test_gap": -248.49,
+        "equation": "Profit = 42,989.01 + 0.7788 × [R&D Spend] + 0.0294 × [Administration] + 0.0347 × [Marketing Spend]"
+      },
+      {
+        "k": 4,
+        "features": [
+          "R&D Spend",
+          "Administration",
+          "Marketing Spend",
+          "State_Florida"
+        ],
+        "test_rmse": 9068.54,
+        "test_r2": 0.9357,
+        "train_test_gap": 32.03,
+        "equation": "Profit = 42,922.43 + 0.7754 × [R&D Spend] + 0.0319 × [Administration] + 0.0363 × [Marketing Spend] - 1272.1608 × [State_Florida]"
+      },
+      {
+        "k": 5,
+        "features": [
+          "R&D Spend",
+          "Administration",
+          "Marketing Spend",
+          "State_Florida",
+          "State_New York"
+        ],
+        "test_rmse": 9137.99,
+        "test_r2": 0.9347,
+        "train_test_gap": 106.32,
+        "equation": "Profit = 42,554.17 + 0.7735 × [R&D Spend] + 0.0329 × [Administration] + 0.0366 × [Marketing Spend] - 959.2842 × [State_Florida] + 699.3691 × [State_New York]"
+      }
+    ],
+    "Exhaustive Search": [
+      {
+        "k": 1,
+        "features": [
+          "R&D Spend"
+        ],
+        "test_rmse": 8274.87,
+        "test_r2": 0.9465,
+        "train_test_gap": -1218.71,
+        "equation": "Profit = 48,416.3 + 0.8516 × [R&D Spend]"
+      },
+      {
+        "k": 2,
+        "features": [
+          "R&D Spend",
+          "Marketing Spend"
+        ],
+        "test_rmse": 8198.8,
+        "test_r2": 0.9474,
+        "train_test_gap": -879.82,
+        "equation": "Profit = 46,346.34 + 0.7886 × [R&D Spend] + 0.0326 × [Marketing Spend]"
+      },
+      {
+        "k": 3,
+        "features": [
+          "R&D Spend",
+          "Marketing Spend",
+          "State_Florida"
+        ],
+        "test_rmse": 8376.45,
+        "test_r2": 0.9451,
+        "train_test_gap": -690.72,
+        "equation": "Profit = 46,530.08 + 0.7864 × [R&D Spend] + 0.0338 × [Marketing Spend] - 1079.4682 × [State_Florida]"
+      },
+      {
+        "k": 4,
+        "features": [
+          "R&D Spend",
+          "Administration",
+          "Marketing Spend",
+          "State_Florida"
+        ],
+        "test_rmse": 9068.54,
+        "test_r2": 0.9357,
+        "train_test_gap": 32.03,
+        "equation": "Profit = 42,922.43 + 0.7754 × [R&D Spend] + 0.0319 × [Administration] + 0.0363 × [Marketing Spend] - 1272.1608 × [State_Florida]"
+      },
+      {
+        "k": 5,
+        "features": [
+          "R&D Spend",
+          "Administration",
+          "Marketing Spend",
+          "State_Florida",
+          "State_New York"
+        ],
+        "test_rmse": 9137.99,
+        "test_r2": 0.9347,
+        "train_test_gap": 106.32,
+        "equation": "Profit = 42,554.17 + 0.7735 × [R&D Spend] + 0.0329 × [Administration] + 0.0366 × [Marketing Spend] - 959.2842 × [State_Florida] + 699.3691 × [State_New York]"
+      }
+    ],
+    "Baseline OLS": [
+      {
+        "k": 1,
+        "features": [
+          "R&D Spend"
+        ],
+        "test_rmse": 8274.87,
+        "test_r2": 0.9465,
+        "train_test_gap": -1218.71,
+        "equation": "Profit = 48,416.3 + 0.8516 × [R&D Spend]"
+      },
+      {
+        "k": 2,
+        "features": [
+          "R&D Spend",
+          "Marketing Spend"
+        ],
+        "test_rmse": 8198.8,
+        "test_r2": 0.9474,
+        "train_test_gap": -879.82,
+        "equation": "Profit = 46,346.34 + 0.7886 × [R&D Spend] + 0.0326 × [Marketing Spend]"
+      },
+      {
+        "k": 3,
+        "features": [
+          "R&D Spend",
+          "Marketing Spend",
+          "Administration"
+        ],
+        "test_rmse": 8803.78,
+        "test_r2": 0.9394,
+        "train_test_gap": -248.49,
+        "equation": "Profit = 42,989.01 + 0.7788 × [R&D Spend] + 0.0347 × [Marketing Spend] + 0.0294 × [Administration]"
+      },
+      {
+        "k": 4,
+        "features": [
+          "R&D Spend",
+          "Marketing Spend",
+          "Administration",
+          "State_New York"
+        ],
+        "test_rmse": 8997.2,
+        "test_r2": 0.9367,
+        "train_test_gap": -41.96,
+        "equation": "Profit = 42,410.31 + 0.7747 × [R&D Spend] + 0.0357 × [Marketing Spend] + 0.0318 × [Administration] + 1052.2199 × [State_New York]"
+      },
+      {
+        "k": 5,
+        "features": [
+          "R&D Spend",
+          "Marketing Spend",
+          "Administration",
+          "State_New York",
+          "State_Florida"
+        ],
+        "test_rmse": 9137.99,
+        "test_r2": 0.9347,
+        "train_test_gap": 106.32,
+        "equation": "Profit = 42,554.17 + 0.7735 × [R&D Spend] + 0.0366 × [Marketing Spend] + 0.0329 × [Administration] + 699.3691 × [State_New York] - 959.2842 × [State_Florida]"
+      }
+    ],
+    "Lasso": [
+      {
+        "k": 1,
+        "features": [
+          "R&D Spend"
+        ],
+        "test_rmse": 8274.87,
+        "test_r2": 0.9465,
+        "train_test_gap": -1218.71,
+        "equation": "Profit = 48,416.3 + 0.8516 × [R&D Spend]"
+      },
+      {
+        "k": 2,
+        "features": [
+          "R&D Spend",
+          "Marketing Spend"
+        ],
+        "test_rmse": 8198.8,
+        "test_r2": 0.9474,
+        "train_test_gap": -879.82,
+        "equation": "Profit = 46,346.34 + 0.7886 × [R&D Spend] + 0.0326 × [Marketing Spend]"
+      },
+      {
+        "k": 3,
+        "features": [
+          "R&D Spend",
+          "Administration",
+          "Marketing Spend"
+        ],
+        "test_rmse": 8803.78,
+        "test_r2": 0.9394,
+        "train_test_gap": -248.49,
+        "equation": "Profit = 42,989.01 + 0.7788 × [R&D Spend] + 0.0294 × [Administration] + 0.0347 × [Marketing Spend]"
+      },
+      {
+        "k": 4,
+        "features": [
+          "R&D Spend",
+          "Administration",
+          "Marketing Spend",
+          "State_New York"
+        ],
+        "test_rmse": 8997.2,
+        "test_r2": 0.9367,
+        "train_test_gap": -41.96,
+        "equation": "Profit = 42,410.31 + 0.7747 × [R&D Spend] + 0.0318 × [Administration] + 0.0357 × [Marketing Spend] + 1052.2199 × [State_New York]"
+      },
+      {
+        "k": 5,
+        "features": [
+          "R&D Spend",
+          "Administration",
+          "Marketing Spend",
+          "State_Florida",
+          "State_New York"
+        ],
+        "test_rmse": 9137.99,
+        "test_r2": 0.9347,
+        "train_test_gap": 106.32,
+        "equation": "Profit = 42,554.17 + 0.7735 × [R&D Spend] + 0.0329 × [Administration] + 0.0366 × [Marketing Spend] - 959.2842 × [State_Florida] + 699.3691 × [State_New York]"
+      }
+    ],
+    "ElasticNet": [
+      {
+        "k": 1,
+        "features": [
+          "R&D Spend"
+        ],
+        "test_rmse": 8274.87,
+        "test_r2": 0.9465,
+        "train_test_gap": -1218.71,
+        "equation": "Profit = 48,416.3 + 0.8516 × [R&D Spend]"
+      },
+      {
+        "k": 2,
+        "features": [
+          "R&D Spend",
+          "Marketing Spend"
+        ],
+        "test_rmse": 8198.8,
+        "test_r2": 0.9474,
+        "train_test_gap": -879.82,
+        "equation": "Profit = 46,346.34 + 0.7886 × [R&D Spend] + 0.0326 × [Marketing Spend]"
+      },
+      {
+        "k": 3,
+        "features": [
+          "R&D Spend",
+          "Administration",
+          "Marketing Spend"
+        ],
+        "test_rmse": 8803.78,
+        "test_r2": 0.9394,
+        "train_test_gap": -248.49,
+        "equation": "Profit = 42,989.01 + 0.7788 × [R&D Spend] + 0.0294 × [Administration] + 0.0347 × [Marketing Spend]"
+      },
+      {
+        "k": 4,
+        "features": [
+          "R&D Spend",
+          "Administration",
+          "Marketing Spend",
+          "State_New York"
+        ],
+        "test_rmse": 8997.2,
+        "test_r2": 0.9367,
+        "train_test_gap": -41.96,
+        "equation": "Profit = 42,410.31 + 0.7747 × [R&D Spend] + 0.0318 × [Administration] + 0.0357 × [Marketing Spend] + 1052.2199 × [State_New York]"
+      },
+      {
+        "k": 5,
+        "features": [
+          "R&D Spend",
+          "Administration",
+          "Marketing Spend",
+          "State_Florida",
+          "State_New York"
+        ],
+        "test_rmse": 9137.99,
+        "test_r2": 0.9347,
+        "train_test_gap": 106.32,
+        "equation": "Profit = 42,554.17 + 0.7735 × [R&D Spend] + 0.0329 × [Administration] + 0.0366 × [Marketing Spend] - 959.2842 × [State_Florida] + 699.3691 × [State_New York]"
+      }
+    ]
+  }
+}

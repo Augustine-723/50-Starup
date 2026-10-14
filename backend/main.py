@@ -133,9 +133,9 @@ def get_models_metadata(random_state: int = Query(42)):
             {
                 'k': m['k'],
                 'features': m['features'],
-                'test_rmse': m['test_rmse'],
-                'test_r2': m['test_r2'],
-                'train_test_gap': m['train_test_gap'],
+                'test_rmse': m.get('test_rmse', m.get('rmse')),
+                'test_r2': m.get('test_r2', m.get('r2')),
+                'train_test_gap': m.get('train_test_gap', 0),
                 'equation': m['equation']
             }
             for m in models

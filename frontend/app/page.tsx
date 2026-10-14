@@ -33,12 +33,13 @@ export default function DashboardPage() {
   const [isBackendConnected, setIsBackendConnected] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
-  // Fetch from FastAPI backend
+  // Fetch from backend or same-origin Next.js API Route Handler
   useEffect(() => {
     async function fetchData() {
       setIsLoading(true);
       try {
-        const res = await fetch(`http://127.0.0.1:8000/api/results?random_state=${randomState}`);
+        const apiBase = process.env.NEXT_PUBLIC_API_URL || '';
+        const res = await fetch(`${apiBase}/api/results?random_state=${randomState}`);
         if (res.ok) {
           const json = await res.json();
           setApiData(json);
@@ -1240,8 +1241,8 @@ export default function DashboardPage() {
             <a href="https://github.com/Augustine-723/50-Starup" target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">
               GitHub Repository
             </a>
-            <a href="http://127.0.0.1:8000/docs" target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">
-              FastAPI Swagger Docs
+            <a href="/api/health" target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">
+              API Endpoints & Status
             </a>
           </div>
         </div>
